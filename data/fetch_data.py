@@ -70,7 +70,7 @@ def main():
     print('checking')
     scopes = ["https://www.googleapis.com/auth/spreadsheets"]
     secret_file = os.path.join(os.getcwd(), 'client_secret.json')
-    spreadsheet_id = = os.environ['LIQUIDITY_SPREADSHEET_ID']
+    spreadsheet_id = os.environ['LIQUIDITY_SPREADSHEET_ID']
 
     try:    
         credentials = service_account.Credentials.from_service_account_file(secret_file, scopes=scopes)
