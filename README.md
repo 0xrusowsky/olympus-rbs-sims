@@ -19,7 +19,7 @@ To define a scenario, the values used to construct the `params` object (under th
  - `cycle_reweights`: determines the amount of reweights that the treasury will perform in a `short_cycle`.
  - `release_caputre`: 
  - `target_price_function`: determines the function used by the price controller.
- -
+ ---
  - `arb_factor`: sets the initial arbitrage factor.
  - `demand_factor`: sets a demand factor that will directly impact assumptions for market demand for OHM. Can be seen as a parameter that reflects constant buy pressure regardless of general market sentiment.
  - `supply_factor`: sets a supply factor that will directly impact assumptions for market demand for OHM. Can be seen as a parameter that reflects constant sell pressure regardless of general market sentiment.
@@ -27,7 +27,7 @@ To define a scenario, the values used to construct the `params` object (under th
  - `long_cycle`: expected duration of long market cycles. It can be seen as "broader crypto market cycles" (these cycles have historically been highly correlated with bitcoin's halving).
  - `long_sin_offset`: helps model market demand in combination with the `long_cycle` value.
  - `long_cos_offset`: helps model market supply in combination with the `long_cycle` value.
- - 
+ ---
  - `initial_supply`: initial protocol supply.
  - `initial_reserves`: initial protocol reserves.
  - `initial_liq_usd`: initial usd liquidity (excluding OHM).
