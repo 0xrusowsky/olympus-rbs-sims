@@ -9,9 +9,12 @@ def initial_params(netflow_type:str, initial_date:str=None, initial_supply:float
         initial_index = historical_df[historical_df == initial_date]['date'].dropna().index[0]
         historical_net_flows = historical_df[historical_df.index >= initial_index]['net_flows'].tolist()
         price, supply, liq_usd, reserves = historical_df.iloc[initial_index, [historical_df.columns.get_loc(c) for c in ['price', 'supply','liquidity','reserves']]]
+        target = price
     else:
         historical_net_flows = None
-
-    target = price
+        price = initial_price
+        liq_usd = initial_liq_usd
+        reserves = initial_reserves
+        target = initial_price
     
     return netflow_type, historical_net_flows, price, target, supply, reserves, liq_usd
