@@ -1,6 +1,4 @@
 import pandas as pd
-import math
-from typing import Dict, List, Tuple
 
 # Get initial params based on historical data
 def initial_params(netflow_type:str, initial_date:str=None, initial_supply:float=None, initial_reserves:float=None, initial_liq_usd:float=None, initial_price:float=None, initial_target:float=None):
