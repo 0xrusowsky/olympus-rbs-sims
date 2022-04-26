@@ -8,13 +8,7 @@ def initial_params(netflow_type:str, initial_date:str=None, initial_supply:float
         historical_df = pd.read_csv('/content/liquidity-olympus/data/historical_ohm_data.csv', usecols= ['date','net_flows', 'price', 'supply','liquidity','reserves'])
         initial_index = historical_df[historical_df == initial_date]['date'].dropna().index[0]
         historical_net_flows = historical_df[historical_df.index >= initial_index]['net_flows'].tolist()
-        iprice, isupply, iliq_usd, ireserves = historical_df.iloc[initial_index, [historical_df.columns.get_loc(c) for c in ['price', 'supply','liquidity','reserves']]]
-        itarget = iprice
+        price, supply, liq_usd, reserves = historical_df.iloc[initial_index, [historical_df.columns.get_loc(c) for c in ['price', 'supply','liquidity','reserves']]]
+        return netflow_type, historical_net_flows, price, price, supply, reserves, liq_usd
     else:
-        historical_net_flows = None
-        iprice = initial_price
-        iliq_usd = initial_liq_usd
-        ireserves = initial_reserves
-        itarget = initial_price
-    
-    return netflow_type, historical_net_flows, iprice, itarget, isupply, ireserves, iliq_usd
+        return netflow_type, None, initial_price, initial_target, initial_supply, initial_reserves, initial_liq_usd
