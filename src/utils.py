@@ -150,7 +150,7 @@ class Day():
         else:
             self.day = prev_day.day + 1
             self.reward_rate = rr_framework(prev_day.supply)
-            self.supply = prev_day.supply * (1 + self.reward_rate) + min(prev_day.ohm_traded, 0)
+            self.supply = max(prev_day.supply * (1 + self.reward_rate) + min(prev_day.ohm_traded, 0), 0)
             self.ma_target = calc_price_target(params=params, prev_day=prev_day, prev_lags=prev_lags)
             self.prev_price = prev_day.price
 
@@ -330,8 +330,8 @@ class Day():
         
 
             # Liquidity and Reserves
-            self.liq_usd = prev_day.liq_usd + self.net_flow - self.reserves_in + self.bid_change_usd - self.ask_change_usd
-            self.liq_ohm = self.k / self.liq_usd
+            self.liq_usd = max(prev_day.liq_usd + self.net_flow - self.reserves_in + self.bid_change_usd - self.ask_change_usd, 0)
+            self.liq_ohm = self.liq_usd and self.k / self.liq_usd or 0  # ensure that if liq_usd is 0 then liq_ohm is 0 as well
             self.price = self.liq_usd / self.liq_ohm
 
             self.reserves_out = self.liq_usd - prev_day.liq_usd - self.net_flow
