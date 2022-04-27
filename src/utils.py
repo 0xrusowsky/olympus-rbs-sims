@@ -104,6 +104,7 @@ class Day():
             self.ohm_traded = 0
             self.cum_ohm_purchased = 0
             self.cum_ohm_burnt = 0
+            self.cum_ohm_minted = 0
             self.reserves = params.initial_reserves
             self.prev_reserves = params.initial_reserves
 
