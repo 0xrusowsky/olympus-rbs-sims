@@ -465,6 +465,6 @@ def calc_lag(day:int, params:ModelParams, prev_lags:Dict[int, Tuple[int, Dict[in
 def calc_gohm_volatility(prev_lags:Dict[int, Tuple[int, Dict[int, float]]]):
     days = len(prev_lags['gohm price variation'][1]) - 1
     if days > 6:
-       return np.std(prev_lags['gohm price variation'][-6:])
+       return np.std(prev_lags['gohm price variation'][-6:])/np.mean(prev_lags['gohm price variation'][-6:])
     else:
         return 0
