@@ -384,7 +384,7 @@ class Day():
         prev_lags['price'][1][self.day] = self.price
         prev_lags['target'][1][self.day] = self.ma_target
         prev_lags['gohm price variation'][1][self.day] = self.price * (1 + self.reward_rate)        
-        prev_lags['gohm volatility'][1][self.day] = calc_gohm_volatility(prev_lags=prev_lags)
+        self.gohm_volatility = calc_gohm_volatility(prev_lags=prev_lags)
 
 
 # Target price controller
