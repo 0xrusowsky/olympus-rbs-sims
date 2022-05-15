@@ -1,5 +1,6 @@
 import random
 import math
+import numpy as np
 from typing import Dict, List, Tuple
 
 
@@ -464,7 +465,8 @@ def calc_lag(day:int, params:ModelParams, prev_lags:Dict[int, Tuple[int, Dict[in
 # gOHM volatility
 def calc_gohm_volatility(prev_lags:Dict[int, Tuple[int, Dict[int, float]]]):
     days = len(prev_lags['gohm price variation'][1]) - 1
+    data = list(prev_lags['gohm price variation'][1].values())[-6:]
     if days > 6:
-       return np.std(prev_lags['gohm price variation'][-6:])/np.mean(prev_lags['gohm price variation'][-6:])
+       return np.std(data)/np.mean(data)
     else:
         return 0
