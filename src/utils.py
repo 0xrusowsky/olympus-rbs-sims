@@ -137,7 +137,6 @@ class Day():
             self.prev_price = self.price
             self.prev_lower_target_wall = self.lower_target_wall
             self.prev_upper_target_wall = self.upper_target_wall
-            self.gohm_volatility = 0
             
             self.market_demand = params.demand_factor
             self.market_supply = params.supply_factor
