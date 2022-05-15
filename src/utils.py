@@ -383,6 +383,8 @@ class Day():
         # Only for reporting purposes (to check calculations)
         prev_lags['price'][1][self.day] = self.price
         prev_lags['target'][1][self.day] = self.ma_target
+        prev_lags['gohm price variation'][1][self.day] = self.price * (1 + self.reward_rate)        
+        prev_lags['gohm volatility'][1][self.day] = calc_gohm_volatility(prev_lags=prev_lags)
 
 
 # Target price controller
@@ -457,3 +459,12 @@ def calc_lag(day:int, params:ModelParams, prev_lags:Dict[int, Tuple[int, Dict[in
                 prev_lags[key][1][day] = prev_lags['lag1'][1][day - values[0]]
           else:
             prev_lags[key][1][day] = values[1][day - 1]
+
+            
+# gOHM volatility
+def calc_gohm_volatility(prev_lags:Dict[int, Tuple[int, Dict[int, float]]]):
+    days = len(prev_lags['gohm price variation'][1]) - 1
+    if days > 6:
+       return np.std(prev_lags['gohm price variation'][-6:])
+    else:
+        return 0
