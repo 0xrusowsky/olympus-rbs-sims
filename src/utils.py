@@ -27,27 +27,32 @@ def long_cos(day:int, cycle:int, offset:float, amplitude:float):
 
 
 # Reward rate framework
-def rr_framework(supply:int):
+def rr_framework(supply:int, with_dynamic_reward_rate:str, out_of_range:bool):
     if supply > 10000000000000:
-      return 0.0000625
+      r = 0.0000625
     elif supply > 1000000000000:
-      return 0.000125
+      r = 0.000125
     elif supply > 100000000000:
-      return 0.00025
+      r = 0.00025
     elif supply > 10000000000:
-      return 0.0005
+      r = 0.0005
     elif supply > 1000000000:
-      return 0.001
+      r = 0.001
     elif supply > 1000000000:
-      return 0.001
+      r = 0.001
     elif supply > 100000000:
-      return 0.002
+      r = 0.002
     else:
-      return 0.004
+      r = 0.004
+    
+    if with_dynamic_reward_rate == 'Yes' and out_of_range is True:
+        return r/2
+    else:
+        return r
 
 
 class ModelParams():
-    def __init__(self, seed:int, netflow_type:str, horizon:int, ask_factor:float, bid_factor:float, cushion_factor:float, target_ma:float, lower_wall:float, upper_wall:float, lower_cushion:float, upper_cushion:float, reinstate_window:int, min_counter_reinstate:int, min_premium_target:int, max_outflow_rate:float, supply_amplitude:int, reserve_change_speed:float, max_liq_ratio:float, cycle_reweights:float, release_capture:float, demand_factor:float, supply_factor:float, initial_supply:float, initial_reserves:float, initial_liq_usd:float, arb_factor:float, initial_price:float, initial_target:float, target_price_function:str, short_cycle:int, long_cycle:int, long_sin_offset:float, long_cos_offset:float):
+    def __init__(self, seed:int, netflow_type:str, horizon:int, ask_factor:float, bid_factor:float, cushion_factor:float, target_ma:float, lower_wall:float, upper_wall:float, lower_cushion:float, upper_cushion:float, reinstate_window:int, min_counter_reinstate:int, min_premium_target:int, max_outflow_rate:float, supply_amplitude:int, reserve_change_speed:float, max_liq_ratio:float, cycle_reweights:float, release_capture:float, demand_factor:float, supply_factor:float, initial_supply:float, initial_reserves:float, initial_liq_usd:float, arb_factor:float, initial_price:float, initial_target:float, target_price_function:str, short_cycle:int, long_cycle:int, long_sin_offset:float, long_cos_offset:float, with_reinstate_window:str, with_dynamic_reward_rate:str):
         self.seed = seed
         self.horizon = horizon
         self.cycle_reweights = cycle_reweights
@@ -61,7 +66,9 @@ class ModelParams():
         self.max_liq_ratio = max_liq_ratio
         self.min_premium_target = min_premium_target
         self.release_capture = release_capture
-        self.max_outflow_rate = max_outflow_rate
+        self.max_outflow_rate = max_outflow_rate        
+        self.with_reinstate_window = with_reinstate_window
+        self.with_dynamic_reward_rate = with_dynamic_reward_rate
         self.demand_factor = demand_factor
         self.supply_factor = supply_factor
 
@@ -92,7 +99,7 @@ class Day():
         if prev_day is None:
             self.day = 1
             self.supply = params.initial_supply
-            self.reward_rate = rr_framework(self.supply)
+            self.reward_rate = rr_framework(self.supply, params.with_dynamic_reward_rate, False)
             self.price = params.initial_price
             self.liq_usd = params.initial_liq_usd
             self.liq_ohm = self.liq_usd / self.price
@@ -150,7 +157,10 @@ class Day():
             
         else:
             self.day = prev_day.day + 1
-            self.reward_rate = rr_framework(prev_day.supply)
+            if prev_day.price < prev_day.lower_target_wall:
+                self.reward_rate = rr_framework(prev_day.supply, params.with_dynamic_reward_rate, True)
+            else:
+                self.reward_rate = rr_framework(prev_day.supply, params.with_dynamic_reward_rate, False)
             self.supply = max(prev_day.supply * (1 + self.reward_rate) + prev_day.ohm_traded, 0)
             self.ma_target = calc_price_target(params=params, prev_day=prev_day, prev_lags=prev_lags)
             self.prev_price = prev_day.price
@@ -223,7 +233,7 @@ class Day():
             natural_price = ((self.net_flow - self.reserves_in + prev_day.liq_usd) ** 2) / self.k
 
             # Real Bid Capacity - Cushion
-            if sum(self.bid_counter) >= params.min_counter_reinstate and natural_price > self.lower_target_cushion:
+            if (sum(self.bid_counter) >= params.min_counter_reinstate or params.with_reinstate_window == 'No') and natural_price > self.lower_target_cushion:
                 self.bid_capacity_cushion = self.bid_capacity_target_cushion
             elif natural_price < self.lower_target_cushion and natural_price >= self.lower_target_wall:
                 self.bid_capacity_cushion = prev_day.bid_capacity_cushion + self.net_flow - self.reserves_in + prev_day.liq_usd - (self.k * self.lower_target_cushion) ** (1/2)
@@ -248,7 +258,7 @@ class Day():
                 self.bid_change_cushion_usd = prev_day.bid_capacity_cushion
 
             # Real Bid Capacity - Totals
-            if sum(self.bid_counter) >= params.min_counter_reinstate and natural_price > self.lower_target_cushion:
+            if (sum(self.bid_counter) >= params.min_counter_reinstate or params.with_reinstate_window == 'No') and natural_price > self.lower_target_cushion:
                 self.bid_capacity = self.bid_capacity_target
             elif natural_price < self.lower_target_wall:
                 self.bid_capacity = prev_day.bid_capacity + self.net_flow - self.reserves_in + prev_day.liq_usd - (self.k * self.lower_target_wall) ** (1/2)
@@ -277,7 +287,7 @@ class Day():
 
 
             # Real Ask Capacity - Cushion
-            if sum(self.ask_counter) >= params.min_counter_reinstate and natural_price < self.upper_target_cushion:
+            if (sum(self.ask_counter) >= params.min_counter_reinstate or params.with_reinstate_window == 'No') and natural_price < self.upper_target_cushion:
                 self.ask_capacity_cushion = self.ask_capacity_target_cushion
             elif natural_price > self.upper_target_cushion and natural_price <= self.upper_target_wall:
                 self.ask_capacity_cushion = prev_day.ask_capacity_cushion - (self.net_flow - self.reserves_in + prev_day.liq_usd) / self.upper_target_cushion + (self.k / self.upper_target_cushion) ** (1/2)
@@ -302,7 +312,7 @@ class Day():
                 self.ask_change_cushion_usd = prev_day.ask_capacity_cushion * self.upper_target_cushion
                             
             # Real Ask Capacity - Totals
-            if sum(self.ask_counter) >= params.min_counter_reinstate and natural_price < self.upper_target_cushion:
+            if (sum(self.ask_counter) >= params.min_counter_reinstate or params.with_reinstate_window == 'No') and natural_price < self.upper_target_cushion:
                 self.ask_capacity = self.ask_capacity_target
             elif natural_price > self.upper_target_wall:
                 self.ask_capacity = prev_day.ask_capacity - (self.net_flow - self.reserves_in + prev_day.liq_usd) / self.upper_target_wall + (self.k / self.upper_target_wall) ** (1/2)
