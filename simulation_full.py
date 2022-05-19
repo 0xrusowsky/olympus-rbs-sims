@@ -109,6 +109,29 @@ def objective(trial):
     return r
 
 
+def get_trial_variables(from_df):
+    
+    result_df = pd.DataFrame(columns = ['key', 'day', 'netFlow', 'price', 'realTarget', 'lowerTargetCushion', 'upperTargetCushion', 'lowerTargetWall', 'upperTargetWall', 'liqUSD', 'liqOHM', 'poolK', 'reservesUSD', 'reserveChange', 'reservesIN', 'reservesOUT', 'tradedOHM', 'treasury', 'supply', 'marketcap', 'floatingSupply', 'floatingMarketcap', 'liqRatio_liqTreasury', 'liqRatio_liqReserves', 'reserveRatio', 'liqFloatingMCRatio', 'floatingMCTreasuryPremium', 'cumPurchasedOHM', 'cumBurntOHM', 'bidCapacity', 'askCapacity', 'bidCapacityCushion', 'askCapacityCushion', 'bidCapacityTargetCushion', 'askCapacityTargetCushion', 'bidCapacityTarget', 'askCapacityTarget', 'askCount', 'bidCount', 'marketDemand', 'marketSupply', 'netTotal', 'gohm7dVolatility']) 
+        
+    for key, value in from_df.iterrows():
+        simulation = simulate(seed = value['seed']
+            ,max_liq_ratio = value['maxLiqRatio']
+            ,ask_factor = value['askFactor']
+            ,cushion_factor = value['cushionFactor']
+            ,lower_wall = value['wall']
+            ,lower_cushion = value['cushion']
+            ,mint_sync_premium = value['mintSyncPremium']
+            ,with_reinstate_window = value['withReinstateWindow']
+            ,with_dynamic_reward_rate = value['withDynamicRR']
+        )
+
+        for day, data in simulation.items():
+            result_df.loc[data.day] = [f'{value["seed"]}_{key}', data.day, float(data.net_flow), float(data.price), float(data.ma_target), float(data.lower_target_cushion), float(data.upper_target_cushion), float(data.lower_target_wall), float(data.upper_target_wall), float(data.liq_usd), float(data.liq_ohm), float(data.k), float(data.reserves), float(100*data.reserves/data.prev_reserves), float(data.reserves_in), float(data.reserves_out), float(data.ohm_traded), float(data.treasury), float(data.supply), float(data.mcap), float(data.floating_supply), float(data.floating_mcap), float(data.liq_ratio), float(data.liq_usd/data.reserves), float(data.reserves_ratio), float(data.liq_fmcap_ratio), float(data.fmcap_treasury_ratio), float(data.cum_ohm_purchased), float(data.cum_ohm_burnt), data.bid_capacity, data.ask_capacity, data.bid_capacity_cushion, data.ask_capacity_cushion, data.bid_capacity_target_cushion, data.ask_capacity_target_cushion, data.bid_capacity_target, data.ask_capacity_target, data.control_ask, data.control_bid, data.market_demand, data.market_supply, data.total_net, data.gohm_volatility]
+
+    return result_df
+
+
+
 # Simulate different parameter configurations with different seeds
 for i in range (0, 1000):
     global study_seed
@@ -130,3 +153,10 @@ for i in range (0, 1000):
     # Save data into BigQuery
     table_id = 'simulation.parameters'
     parameters_df.to_gbq(destination_table=table_id, project_id='range-stability-model', credentials=service_account.Credentials.from_service_account_info(private_key), if_exists = 'append')
+
+    # Get all the historical data from the simulated scenario
+    historical_df = get_trial_variables(parameters_df)
+
+    # Save data into BigQuery
+    table_id = 'simulation.historical'
+    historical_df.to_gbq(destination_table=table_id, project_id='range-stability-model', credentials=service_account.Credentials.from_service_account_info(private_key), if_exists = 'append')
