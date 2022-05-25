@@ -14,7 +14,8 @@ def initial_params(netflow_type:str, initial_date:str=None, initial_supply:float
         historical_net_flows = None
         price = initial_price
         liq_usd = initial_liq_usd
+        supply = initial_supply
         reserves = initial_reserves
-        target = initial_price
+        target = initial_target
     
     return netflow_type, historical_net_flows, price, target, supply, reserves, liq_usd

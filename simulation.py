@@ -18,6 +18,7 @@ private_key = os.environ["BIGQUERY_SECRET"]
 
 client = bigquery.Client(credentials=service_account.Credentials.from_service_account_info(private_key))
 
+
 # Simulate scenario with market operations
 def simulate (max_liq_ratio, ask_factor, cushion_factor, lower_wall, lower_cushion, mint_sync_premium, with_reinstate_window, with_dynamic_reward_rate, seed):
     netflow_type, historical_net_flows, price, target, supply, reserves, liq_usd = initial_params(
@@ -31,7 +32,7 @@ def simulate (max_liq_ratio, ask_factor, cushion_factor, lower_wall, lower_cushi
     )
 
     params = ModelParams(seed = seed  # seed number so all the simulations use the same randomness
-        ,horizon = 365  # simulation timespan.
+        ,horizon = 1000  # simulation timespan.
         ,short_cycle = 30  # short market cycle duration.
         ,cycle_reweights = 1  # reweights per short market cycle.
         ,long_cycle = 730  # long market cycle duration.
@@ -111,7 +112,6 @@ def objective(trial):
 
 # Simulate different parameter configurations with different seeds
 for i in range (0, 1000):
-    global study_seed
     study_seed = i
     study_name=f"study{i}"
     study = optuna.create_study(study_name=study_name, storage=f"sqlite:///{study_name}.db", direction='maximize')

@@ -1,7 +1,6 @@
 import pandas as pd
 import numpy as np
 import random
-import optuna
 import os
 from google.cloud import bigquery
 from google.oauth2 import service_account
@@ -87,28 +86,6 @@ def simulate (max_liq_ratio, ask_factor, cushion_factor, lower_wall, lower_cushi
     return simulation
 
 
-
-def objective(trial):
-    global study_seed
-    r = 0
-
-    trial.set_user_attr("seed", study_seed)
-    simulation = simulate(seed = study_seed
-        ,max_liq_ratio = trial.suggest_float('maxLiqRatio', 0.1, 0.5, step=0.025)
-        ,ask_factor = trial.suggest_float('askFactor', 0.01, 0.1,  step=0.005)
-        ,cushion_factor = trial.suggest_float('cushionFactor', 0.1, 0.5, step=0.025)
-        ,lower_wall = trial.suggest_float('wall', 0.2, 0.3, step=0.01)
-        ,lower_cushion = trial.suggest_float('cushion', 0.1, 0.2, step=0.01)
-				,mint_sync_premium = trial.suggest_int('mintSyncPremium', 0, 3, step=1)
-				,with_reinstate_window = trial.suggest_categorical('withReinstateWindow', ['Yes','No'])
-				,with_dynamic_reward_rate = trial.suggest_categorical('withDynamicRR', ['Yes','No'])
-    )
-
-    for day, data in simulation.items():
-        r += data.treasury * data.mcap / (1 + data.gohm_volatility)
-    return r
-
-
 def get_trial_variables(from_df):
     
     result_df = pd.DataFrame(columns = ['key', 'day', 'netFlow', 'price', 'realTarget', 'lowerTargetCushion', 'upperTargetCushion', 'lowerTargetWall', 'upperTargetWall', 'liqUSD', 'liqOHM', 'poolK', 'reservesUSD', 'reserveChange', 'reservesIN', 'reservesOUT', 'tradedOHM', 'treasury', 'supply', 'marketcap', 'floatingSupply', 'floatingMarketcap', 'liqRatio_liqTreasury', 'liqRatio_liqReserves', 'reserveRatio', 'liqFloatingMCRatio', 'floatingMCTreasuryPremium', 'cumPurchasedOHM', 'cumBurntOHM', 'bidCapacity', 'askCapacity', 'bidCapacityCushion', 'askCapacityCushion', 'bidCapacityTargetCushion', 'askCapacityTargetCushion', 'bidCapacityTarget', 'askCapacityTarget', 'askCount', 'bidCount', 'marketDemand', 'marketSupply', 'netTotal', 'gohm7dVolatility']) 
@@ -126,36 +103,27 @@ def get_trial_variables(from_df):
         )
 
         for day, data in simulation.items():
-            result_df.loc[data.day] = [f'{value["seed"]}_{key}', data.day, float(data.net_flow), float(data.price), float(data.ma_target), float(data.lower_target_cushion), float(data.upper_target_cushion), float(data.lower_target_wall), float(data.upper_target_wall), float(data.liq_usd), float(data.liq_ohm), float(data.k), float(data.reserves), float(100*data.reserves/data.prev_reserves), float(data.reserves_in), float(data.reserves_out), float(data.ohm_traded), float(data.treasury), float(data.supply), float(data.mcap), float(data.floating_supply), float(data.floating_mcap), float(data.liq_ratio), float(data.liq_usd/data.reserves), float(data.reserves_ratio), float(data.liq_fmcap_ratio), float(data.fmcap_treasury_ratio), float(data.cum_ohm_purchased), float(data.cum_ohm_burnt), data.bid_capacity, data.ask_capacity, data.bid_capacity_cushion, data.ask_capacity_cushion, data.bid_capacity_target_cushion, data.ask_capacity_target_cushion, data.bid_capacity_target, data.ask_capacity_target, data.control_ask, data.control_bid, data.market_demand, data.market_supply, data.total_net, data.gohm_volatility]
+            result_df.loc[len(result_df)] = [str(f'{value["seed"]}_{key}'), float(data.day), float(data.net_flow), float(data.price), float(data.ma_target), float(data.lower_target_cushion), float(data.upper_target_cushion), float(data.lower_target_wall), float(data.upper_target_wall), float(data.liq_usd), float(data.liq_ohm), float(data.k), float(data.reserves), float(100*data.reserves/data.prev_reserves), float(data.reserves_in), float(data.reserves_out), float(data.ohm_traded), float(data.treasury), float(data.supply), float(data.mcap), float(data.floating_supply), float(data.floating_mcap), float(data.liq_ratio), float(data.liq_usd/data.reserves), float(data.reserves_ratio), float(data.liq_fmcap_ratio), float(data.fmcap_treasury_ratio), float(data.cum_ohm_purchased), float(data.cum_ohm_burnt), float(data.bid_capacity), float(data.ask_capacity), float(data.bid_capacity_cushion), float(data.ask_capacity_cushion), float(data.bid_capacity_target_cushion), float(data.ask_capacity_target_cushion), float(data.bid_capacity_target), float(data.ask_capacity_target), float(data.control_ask), float(data.control_bid), float(data.market_demand), float(data.market_supply), float(data.total_net), float(data.gohm_volatility)]
 
     return result_df
 
 
-
-# Simulate different parameter configurations with different seeds
-for i in range (0, 1000):
-    global study_seed
-    study_seed = i
-    study_name=f"study{i}"
-    study = optuna.create_study(study_name=study_name, storage=f"sqlite:///{study_name}.db", direction='maximize')
-    study.optimize(objective, n_trials = 10000)
-    study_df = study.trials_dataframe()
-    study_df['key'] = study_df.user_attrs_seed.astype(str) + '_' + study_df.index.astype(str)
-    parameters_df = pd.DataFrame.reindex(study_df, columns = ['key', 'user_attrs_seed', 'value', 'params_maxLiqRatio', 'params_askFactor', 'params_cushionFactor', 'params_wall', 'params_cushion', 'params_mintSyncPremium', 'params_withReinstateWindow', 'params_withDynamicRR'])
-
-    # Clean df names
-    for name in parameters_df.columns:
-        if name[:7] == 'params_':
-            parameters_df.rename(columns={name:name[7:]}, inplace=True)
-        elif name[:11] == 'user_attrs_':
-            parameters_df.rename(columns={name:name[11:]}, inplace=True)
-
-    # Save data into BigQuery
-    table_id = 'simulation.parameters'
-    parameters_df.to_gbq(destination_table=table_id, project_id='range-stability-model', credentials=service_account.Credentials.from_service_account_info(private_key), if_exists = 'append')
-
+# Load data from BigQuery
+for s in range (0, 1001):
+    query = """select * from `range-stability-model.simulation.parameters` where seed = @seed"""
+    job_config = bigquery.QueryJobConfig(
+        query_parameters=[
+            bigquery.ScalarQueryParameter("seed", "INT64", s),
+            ]
+        )
+    parameters_df = (
+        client.query(query, job_config).result().to_dataframe(create_bqstorage_client=True)
+    )
+    print(parameters_df)
+        
     # Get all the historical data from the simulated scenario
     historical_df = get_trial_variables(parameters_df)
+    print(historical_df)
 
     # Save data into BigQuery
     table_id = 'simulation.historical'
