@@ -109,7 +109,7 @@ def get_trial_variables(from_df):
 
 
 # Load data from BigQuery
-for s in range (0, 1001):
+for s in range (0, 1000):
     query = """select * from `range-stability-model.simulation.parameters` where seed = @seed"""
     job_config = bigquery.QueryJobConfig(
         query_parameters=[
