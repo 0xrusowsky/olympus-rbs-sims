@@ -23,8 +23,8 @@ def simulate (max_liq_ratio, ask_factor, cushion_factor, lower_wall, lower_cushi
         netflow_type = 'random' # determines the netflow types. Either 'historical', 'random', or 'cycles' (sin/cos waves)
         ,initial_date = '2021/12/18' # determines the initial date to account for 'historical' netflows and initial params. (example: '2021/12/18')
         ,initial_supply = 25000000
-        ,initial_reserves = 340000000
-        ,initial_liq_usd = 70000000
+        ,initial_reserves = 250000000
+        ,initial_liq_usd = 25000000
         ,initial_price = 30
         ,initial_target = 30
     )
