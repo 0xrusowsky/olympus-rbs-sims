@@ -344,7 +344,7 @@ class Day():
             # Liquidity and Reserves
             self.liq_usd = max(prev_day.liq_usd + self.net_flow - self.reserves_in + self.bid_change_usd - self.ask_change_usd, 0)
             self.liq_ohm = self.liq_usd and self.k / self.liq_usd or 0  # ensure that if liq_usd is 0 then liq_ohm is 0 as well
-            self.price = self.liq_usd / self.liq_ohm
+            self.price = self.liq_ohm and self.liq_usd / self.liq_ohm or 0  # ensure that if liq_ohm is 0 then price is 0 as well
 
             self.reserves_out = self.liq_usd - prev_day.liq_usd - self.net_flow
             self.reserves = max(prev_day.reserves - self.reserves_out, 0)
@@ -369,10 +369,11 @@ class Day():
         self.mcap = self.supply * self.price
         self.floating_supply = self.supply - self.liq_ohm
         self.floating_mcap = self.floating_supply * self.price
-        self.liq_ratio = self.liq_usd / self.treasury
-        self.reserves_ratio = self.reserves / self.liq_usd
-        self.fmcap_treasury_ratio = self.floating_mcap / self.treasury
-        self.liq_fmcap_ratio = self.liq_usd / self.floating_mcap
+
+        self.liq_ratio = self.treasury and self.liq_usd / self.treasury or 0
+        self.reserves_ratio = self.liq_usd and self.reserves / self.liq_usd or 0
+        self.fmcap_treasury_ratio = self.treasury and self.floating_mcap / self.treasury or 0
+        self.liq_fmcap_ratio = self.floating_mcap and self.liq_usd / self.floating_mcap or 0
 
         self.total_demand = self.market_demand
         self.total_supply = self.market_supply
