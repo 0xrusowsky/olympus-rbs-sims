@@ -115,7 +115,7 @@ for i in range (0, 1000):
     study_seed = i
     study_name=f"study{i}"
     study = optuna.create_study(study_name=study_name, storage=f"sqlite:///{study_name}.db", direction='maximize')
-    study.optimize(objective, n_trials = 10000)
+    study.optimize(objective, n_trials = 3333)
     study_df = study.trials_dataframe()
     study_df['key'] = study_df.user_attrs_seed.astype(str) + '_' + study_df.index.astype(str)
     parameters_df = pd.DataFrame.reindex(study_df, columns = ['key', 'user_attrs_seed', 'value', 'params_maxLiqRatio', 'params_askFactor', 'params_cushionFactor', 'params_wall', 'params_cushion', 'params_mintSyncPremium', 'params_withReinstateWindow', 'params_withDynamicRR'])
