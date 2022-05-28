@@ -4,20 +4,27 @@ import random
 import optuna
 import os
 from google.cloud import bigquery
-from google.oauth2 import service_account
 
-from plotly.subplots import make_subplots
-import plotly.express as px
-pd.options.plotting.backend = "plotly"
+# from plotly.subplots import make_subplots
+# import plotly.express as px
+# pd.options.plotting.backend = "plotly"
 
 from src.utils import ModelParams, Day, short_sin, short_cos, long_sin, long_cos
 from src.init_functions import initial_params
 
 study_seed = 0
-private_key = os.environ["BIGQUERY_SECRET"]
 
-client = bigquery.Client(credentials=service_account.Credentials.from_service_account_info(private_key))
+# Initialize BigQuery Client
+client = bigquery.Client()
 
+# Set Dataset and Table
+table_id = "liquidity-simulation.simulations.trials"
+
+# Set table schema and to overwrite
+job_config = bigquery.LoadJobConfig(
+    autodetect=True,
+    write_disposition="WRITE_APPEND",
+)
 
 # Simulate scenario with market operations
 def simulate (max_liq_ratio, ask_factor, cushion_factor, lower_wall, lower_cushion, mint_sync_premium, with_reinstate_window, with_dynamic_reward_rate, seed):
@@ -127,6 +134,19 @@ for i in range (0, 1000):
         elif name[:11] == 'user_attrs_':
             parameters_df.rename(columns={name:name[11:]}, inplace=True)
 
-    # Save data into BigQuery
-    table_id = 'simulation.parameters'
-    parameters_df.to_gbq(destination_table=table_id, project_id='range-stability-model', credentials=service_account.Credentials.from_service_account_info(private_key), if_exists = 'append')
+
+    # Load updated data
+    print(f"seed {study_seed} status | START uploading data into BigQuery")
+    job = client.load_table_from_dataframe(
+        parameters_df, table_id, job_config=job_config, location="US"
+    )
+    job.result()
+    print(f"seed {study_seed} status | END uploading data into BigQuery")
+
+    # Print out confirmed job details
+    table = client.get_table(table_id)
+    print(
+        "seed status | Loaded {} rows and {} columns to {}".format(
+            table.num_rows, len(table.schema), table_id
+        )
+    )

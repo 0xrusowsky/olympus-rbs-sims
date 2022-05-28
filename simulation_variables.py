@@ -3,19 +3,21 @@ import numpy as np
 import random
 import os
 from google.cloud import bigquery
-from google.oauth2 import service_account
+# from google.oauth2 import service_account
 
-from plotly.subplots import make_subplots
-import plotly.express as px
-pd.options.plotting.backend = "plotly"
+# from plotly.subplots import make_subplots
+# import plotly.express as px
+# pd.options.plotting.backend = "plotly"
 
 from src.utils import ModelParams, Day, short_sin, short_cos, long_sin, long_cos
 from src.init_functions import initial_params
 
 study_seed = 0
-private_key = os.environ["BIGQUERY_SECRET"]
 
-client = bigquery.Client(credentials=service_account.Credentials.from_service_account_info(private_key))
+###REPLACE
+# private_key = os.environ["BIGQUERY_SECRET"]
+# client = bigquery.Client(credentials=service_account.Credentials.from_service_account_info(private_key))
+###
 
 # Simulate scenario with market operations
 def simulate (max_liq_ratio, ask_factor, cushion_factor, lower_wall, lower_cushion, mint_sync_premium, with_reinstate_window, with_dynamic_reward_rate, seed):
@@ -125,6 +127,9 @@ for s in range (0, 1000):
     historical_df = get_trial_variables(parameters_df)
     print(historical_df)
 
-    # Save data into BigQuery
-    table_id = 'simulation.historical'
-    historical_df.to_gbq(destination_table=table_id, project_id='range-stability-model', credentials=service_account.Credentials.from_service_account_info(private_key), if_exists = 'append')
+
+###REPLACE
+    # # Save data into BigQuery
+    # table_id = 'simulation.historical'
+    # historical_df.to_gbq(destination_table=table_id, project_id='range-stability-model', credentials=service_account.Credentials.from_service_account_info(private_key), if_exists = 'append')
+###
