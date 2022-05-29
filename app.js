@@ -10,7 +10,13 @@ const child7 = spawn('python3', ["./simulation_360-420.py"]);
 const child8 = spawn('python3', ["./simulation_420-480.py"]);
 const child9 = spawn('python3', ["./simulation_480-540.py"]);
 const child10 = spawn('python3', ["./simulation_540-600.py"]);
-
+const child11 = spawn('python3', ["./simulation_600-660.py"]);
+const child12 = spawn('python3', ["./simulation_660-720.py"]);
+const child13 = spawn('python3', ["./simulation_720-780.py"]);
+const child14 = spawn('python3', ["./simulation_780-840.py"]);
+const child15 = spawn('python3', ["./simulation_840-900.py"]);
+const child16 = spawn('python3', ["./simulation_900-960.py"]);
+const child17 = spawn('python3', ["./simulation_960-1020.py"]);
 
 child1.stdout.on('data', (data)=> {
     console.log(`simulation.py: \n${data}`)
@@ -110,4 +116,74 @@ child10.stderr.on('data', (data)=> {
 });
 child10.on('close', (code) => {
     console.log(`simulation_540-600.py exited with code ${code}`);
+})
+
+child11.stdout.on('data', (data)=> {
+    console.log(`simulation_600-660.py: \n${data}`)
+});
+child11.stderr.on('data', (data)=> {
+    console.log(`simulation_600-660.py: \n${data}`)
+});
+child11.on('close', (code) => {
+    console.log(`simulation_600-660.py exited with code ${code}`);
+})
+
+child12.stdout.on('data', (data)=> {
+    console.log(`simulation_660-720.py: \n${data}`)
+});
+child12.stderr.on('data', (data)=> {
+    console.log(`simulation_660-720.py: \n${data}`)
+});
+child12.on('close', (code) => {
+    console.log(`simulation_660-720.py exited with code ${code}`);
+})
+
+child13.stdout.on('data', (data)=> {
+    console.log(`simulation_720-780.py: \n${data}`)
+});
+child13.stderr.on('data', (data)=> {
+    console.log(`simulation_720-780.py: \n${data}`)
+});
+child13.on('close', (code) => {
+    console.log(`simulation_720-780.py exited with code ${code}`);
+})
+
+child14.stdout.on('data', (data)=> {
+    console.log(`simulation_780-840.py: \n${data}`)
+});
+child14.stderr.on('data', (data)=> {
+    console.log(`simulation_780-840.py: \n${data}`)
+});
+child14.on('close', (code) => {
+    console.log(`simulation_780-840.py exited with code ${code}`);
+})
+
+child15.stdout.on('data', (data)=> {
+    console.log(`simulation_840-900.py: \n${data}`)
+});
+child15.stderr.on('data', (data)=> {
+    console.log(`simulation_840-900.py: \n${data}`)
+});
+child15.on('close', (code) => {
+    console.log(`simulation_840-900.py exited with code ${code}`);
+})
+
+child16.stdout.on('data', (data)=> {
+    console.log(`simulation_900-960.py: \n${data}`)
+});
+child16.stderr.on('data', (data)=> {
+    console.log(`simulation_900-960.py: \n${data}`)
+});
+child16.on('close', (code) => {
+    console.log(`simulation_900-960.py exited with code ${code}`);
+})
+
+child17.stdout.on('data', (data)=> {
+    console.log(`simulation_960-1020.py: \n${data}`)
+});
+child17.stderr.on('data', (data)=> {
+    console.log(`simulation_960-1020.py: \n${data}`)
+});
+child17.on('close', (code) => {
+    console.log(`simulation_960-1020.py exited with code ${code}`);
 })
