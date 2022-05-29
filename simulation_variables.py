@@ -3,11 +3,6 @@ import numpy as np
 import random
 import os
 from google.cloud import bigquery
-# from google.oauth2 import service_account
-
-# from plotly.subplots import make_subplots
-# import plotly.express as px
-# pd.options.plotting.backend = "plotly"
 
 from src.utils import ModelParams, Day, short_sin, short_cos, long_sin, long_cos
 from src.init_functions import initial_params
@@ -20,7 +15,8 @@ study_seed = 0
 ###
 
 # Simulate scenario with market operations
-def simulate (max_liq_ratio, ask_factor, cushion_factor, lower_wall, lower_cushion, mint_sync_premium, with_reinstate_window, with_dynamic_reward_rate, seed):
+
+def model_inputs (max_liq_ratio, ask_factor, cushion_factor, lower_wall, lower_cushion, mint_sync_premium, with_reinstate_window, with_dynamic_reward_rate, seed):
     netflow_type, historical_net_flows, price, target, supply, reserves, liq_usd = initial_params(
         netflow_type = 'random' # determines the netflow types. Either 'historical', 'random', or 'cycles' (sin/cos waves)
         ,initial_date = '2021/12/18' # determines the initial date to account for 'historical' netflows and initial params. (example: '2021/12/18')
@@ -87,22 +83,21 @@ def simulate (max_liq_ratio, ask_factor, cushion_factor, lower_wall, lower_cushi
 
     return simulation
 
-
 def get_trial_variables(from_df):
     
     result_df = pd.DataFrame(columns = ['key', 'day', 'netFlow', 'price', 'realTarget', 'lowerTargetCushion', 'upperTargetCushion', 'lowerTargetWall', 'upperTargetWall', 'liqUSD', 'liqOHM', 'poolK', 'reservesUSD', 'reserveChange', 'reservesIN', 'reservesOUT', 'tradedOHM', 'treasury', 'supply', 'marketcap', 'floatingSupply', 'floatingMarketcap', 'liqRatio_liqTreasury', 'liqRatio_liqReserves', 'reserveRatio', 'liqFloatingMCRatio', 'floatingMCTreasuryPremium', 'cumPurchasedOHM', 'cumBurntOHM', 'bidCapacity', 'askCapacity', 'bidCapacityCushion', 'askCapacityCushion', 'bidCapacityTargetCushion', 'askCapacityTargetCushion', 'bidCapacityTarget', 'askCapacityTarget', 'askCount', 'bidCount', 'marketDemand', 'marketSupply', 'netTotal', 'gohm7dVolatility']) 
         
     for key, value in from_df.iterrows():
-        simulation = simulate(seed = value['seed']
-            ,max_liq_ratio = value['maxLiqRatio']
-            ,ask_factor = value['askFactor']
-            ,cushion_factor = value['cushionFactor']
-            ,lower_wall = value['wall']
-            ,lower_cushion = value['cushion']
-            ,mint_sync_premium = value['mintSyncPremium']
-            ,with_reinstate_window = value['withReinstateWindow']
-            ,with_dynamic_reward_rate = value['withDynamicRR']
-        )
+        simulation = model_inputs(seed = value['seed']
+                                  , max_liq_ratio = value['maxLiqRatio']
+                                  , ask_factor = value['askFactor']
+                                  , cushion_factor = value['cushionFactor']
+                                  , lower_wall = value['wall']
+                                  , lower_cushion = value['cushion']
+                                  , mint_sync_premium = value['mintSyncPremium']
+                                  , with_reinstate_window = value['withReinstateWindow']
+                                  , with_dynamic_reward_rate = value['withDynamicRR']
+                                  )
 
         for day, data in simulation.items():
             result_df.loc[len(result_df)] = [str(f'{value["seed"]}_{key}'), float(data.day), float(data.net_flow), float(data.price), float(data.ma_target), float(data.lower_target_cushion), float(data.upper_target_cushion), float(data.lower_target_wall), float(data.upper_target_wall), float(data.liq_usd), float(data.liq_ohm), float(data.k), float(data.reserves), float(100*data.reserves/data.prev_reserves), float(data.reserves_in), float(data.reserves_out), float(data.ohm_traded), float(data.treasury), float(data.supply), float(data.mcap), float(data.floating_supply), float(data.floating_mcap), float(data.liq_ratio), float(data.liq_usd/data.reserves), float(data.reserves_ratio), float(data.liq_fmcap_ratio), float(data.fmcap_treasury_ratio), float(data.cum_ohm_purchased), float(data.cum_ohm_burnt), float(data.bid_capacity), float(data.ask_capacity), float(data.bid_capacity_cushion), float(data.ask_capacity_cushion), float(data.bid_capacity_target_cushion), float(data.ask_capacity_target_cushion), float(data.bid_capacity_target), float(data.ask_capacity_target), float(data.control_ask), float(data.control_bid), float(data.market_demand), float(data.market_supply), float(data.total_net), float(data.gohm_volatility)]

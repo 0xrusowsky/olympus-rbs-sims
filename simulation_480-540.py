@@ -8,7 +8,7 @@ from google.cloud import bigquery
 from src.utils import ModelParams, Day, short_sin, short_cos, long_sin, long_cos
 from src.init_functions import initial_params
 
-print("Starting seeds 1-60")
+print("Starting seeds 480-540")
 
 study_seed = 0
 
@@ -115,7 +115,7 @@ def model_distributions(trial):
 
 
 # Simulate different parameter configurations with different seeds
-for i in range (0, 59):
+for i in range (480, 539):
     study_seed = i
     study_name=f"study{i}"
     study = optuna.create_study(study_name=study_name, storage=f"sqlite:///{study_name}.db", direction='maximize')
