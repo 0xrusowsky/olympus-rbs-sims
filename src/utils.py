@@ -191,7 +191,7 @@ class Day():
 
             # Target capacities
             self.bid_capacity_target = params.bid_factor * prev_day.reserves
-            self.ask_capacity_target = params.ask_factor * prev_day.reserves * (1 + prev_day.lower_spread_wall + prev_day.upper_spread_wall) / prev_day.upper_target_wall
+            self.ask_capacity_target = prev_day.upper_target_wall and params.ask_factor * prev_day.reserves * (1 + prev_day.lower_spread_wall + prev_day.upper_spread_wall) / prev_day.upper_target_wall or 0
             self.bid_capacity_target_cushion = self.bid_capacity_target * params.cushion_factor
             self.ask_capacity_target_cushion = self.ask_capacity_target * params.cushion_factor
 
@@ -248,14 +248,14 @@ class Day():
 
             # Effective Bid Capacity Changes - Cushion
             if natural_price <= self.lower_target_cushion and natural_price > self.lower_target_wall:
-                self.bid_change_cushion_ohm = (prev_day.bid_capacity_cushion - self.bid_capacity_cushion) / self.lower_target_cushion
+                self.bid_change_cushion_ohm = self.lower_target_cushion and (prev_day.bid_capacity_cushion - self.bid_capacity_cushion) / self.lower_target_cushion or 0
                 self.bid_change_cushion_usd = prev_day.bid_capacity_cushion - self.bid_capacity_cushion
             else:
                 self.bid_change_cushion_ohm = 0
                 self.bid_change_cushion_usd = 0
 
             if self.bid_change_cushion_ohm > prev_day.bid_capacity_cushion:  # ensure that change is smaller than capacity left
-                self.bid_change_cushion_ohm = prev_day.bid_capacity_cushion / self.lower_target_cushion
+                self.bid_change_cushion_ohm = self.lower_target_cushion and prev_day.bid_capacity_cushion / self.lower_target_cushion or 0
                 self.bid_change_cushion_usd = prev_day.bid_capacity_cushion
 
             # Real Bid Capacity - Totals
@@ -279,11 +279,11 @@ class Day():
                 self.bid_change_ohm = self.bid_change_cushion_ohm
                 self.bid_change_usd = self.bid_change_cushion_usd
             else:
-                self.bid_change_ohm = self.bid_change_cushion_ohm + (prev_day.bid_capacity - self.bid_capacity - self.bid_change_cushion_usd) / self.lower_target_wall
+                self.bid_change_ohm = self.lower_target_wall and self.bid_change_cushion_ohm + (prev_day.bid_capacity - self.bid_capacity - self.bid_change_cushion_usd) / self.lower_target_wall or 0
                 self.bid_change_usd = prev_day.bid_capacity - self.bid_capacity
 
             if self.bid_change_usd > prev_day.bid_capacity:  # ensure that change is smaller than capacity left
-                self.bid_change_ohm = prev_day.bid_capacity / self.lower_target_wall
+                self.bid_change_ohm = self.lower_target_wall and prev_day.bid_capacity / self.lower_target_wall or 0
                 self.bid_change_usd = prev_day.bid_capacity
 
 
@@ -291,7 +291,7 @@ class Day():
             if (sum(self.ask_counter) >= params.min_counter_reinstate or params.with_reinstate_window == 'No') and natural_price < self.upper_target_cushion:
                 self.ask_capacity_cushion = self.ask_capacity_target_cushion
             elif natural_price > self.upper_target_cushion and natural_price <= self.upper_target_wall:
-                self.ask_capacity_cushion = prev_day.ask_capacity_cushion - (self.net_flow - self.reserves_in + prev_day.liq_usd) / self.upper_target_cushion + (self.k / self.upper_target_cushion) ** (1/2)
+                self.ask_capacity_cushion = self.upper_target_cushion and prev_day.ask_capacity_cushion - (self.net_flow - self.reserves_in + prev_day.liq_usd) / self.upper_target_cushion + (self.k / self.upper_target_cushion) ** (1/2) or 0
             else:
                 self.ask_capacity_cushion = prev_day.ask_capacity_cushion
 
@@ -316,7 +316,7 @@ class Day():
             if (sum(self.ask_counter) >= params.min_counter_reinstate or params.with_reinstate_window == 'No') and natural_price < self.upper_target_cushion:
                 self.ask_capacity = self.ask_capacity_target
             elif natural_price > self.upper_target_wall:
-                self.ask_capacity = prev_day.ask_capacity - (self.net_flow - self.reserves_in + prev_day.liq_usd) / self.upper_target_wall + (self.k / self.upper_target_wall) ** (1/2)
+                self.ask_capacity = self.upper_target_wall and prev_day.ask_capacity - (self.net_flow - self.reserves_in + prev_day.liq_usd) / self.upper_target_wall + (self.k / self.upper_target_wall) ** (1/2) or 0
             else:
                 self.ask_capacity = prev_day.ask_capacity - self.ask_change_cushion_ohm # update capacity total to account for the cushion
 
@@ -350,7 +350,7 @@ class Day():
             self.reserves = max(prev_day.reserves - self.reserves_out, 0)
             self.prev_reserves = prev_day.reserves
 
-            self.ohm_traded = (-2) * self.reserves_out / (self.price + prev_day.price)
+            self.ohm_traded = (self.price + prev_day.price) and (-2) * self.reserves_out / (self.price + prev_day.price) or 0
             self.cum_ohm_purchased = prev_day.cum_ohm_purchased - self.ohm_traded
             self.cum_ohm_burnt = prev_day.cum_ohm_burnt - min(self.ohm_traded, 0)            
             self.cum_ohm_minted = prev_day.cum_ohm_minted + max(self.ohm_traded, 0)
@@ -468,6 +468,9 @@ def calc_gohm_volatility(prev_lags:Dict[int, Tuple[int, Dict[int, float]]]):
     days = len(prev_lags['gohm price variation'][1]) - 1
     data = list(prev_lags['gohm price variation'][1].values())
     if days > 6:
-       return np.std(data[-6:])/np.mean(data[-6:])
+        if np.mean(data[-6:]) == 0:
+           return 0
+        else:
+            return np.std(data[-6:])/np.mean(data[-6:])
     else:
         return 0
