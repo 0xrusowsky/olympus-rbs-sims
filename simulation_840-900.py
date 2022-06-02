@@ -115,7 +115,7 @@ def model_distributions(trial):
 
 
 # Simulate different parameter configurations with different seeds
-for i in range (840, 899):
+for i in range (840, 900):
     study_seed = i
     study_name=f"study{i}"
     study = optuna.create_study(study_name=study_name, storage=f"sqlite:///{study_name}.db", direction='maximize')

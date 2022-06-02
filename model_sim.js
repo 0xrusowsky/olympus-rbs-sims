@@ -16,7 +16,7 @@ const child13 = spawn('python3', ["./simulation_720-780.py"]);
 const child14 = spawn('python3', ["./simulation_780-840.py"]);
 const child15 = spawn('python3', ["./simulation_840-900.py"]);
 const child16 = spawn('python3', ["./simulation_900-960.py"]);
-const child17 = spawn('python3', ["./simulation_960-1020.py"]);
+const child17 = spawn('python3', ["./simulation_960-1001.py"]);
 
 child1.stdout.on('data', (data)=> {
     console.log(`simulation.py: \n${data}`)

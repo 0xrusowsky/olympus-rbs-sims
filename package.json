@@ -2,7 +2,7 @@
   "name": "liquidity-olympus",
   "version": "1.0.0",
   "description": "This jupyter notebook aims to provide a playground to simulate different scenarios for the so-called \"Forward Guidance\", a model ideated by Zeus.",
-  "main": "app.js",
+  "main": "model_sim.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"
   },

@@ -9,10 +9,18 @@ from src.init_functions import initial_params
 
 study_seed = 0
 
-###REPLACE
-# private_key = os.environ["BIGQUERY_SECRET"]
-# client = bigquery.Client(credentials=service_account.Credentials.from_service_account_info(private_key))
-###
+# Initialize BigQuery Client
+client = bigquery.Client()
+
+# Set Dataset and Table
+table_id = "liquidity-simulation.simulations.daily_data"
+
+# Set table schema and to overwrite
+job_config_upload = bigquery.LoadJobConfig(
+    autodetect=True,
+    write_disposition="WRITE_APPEND",
+)
+
 
 # Simulate scenario with market operations
 
@@ -106,8 +114,8 @@ def get_trial_variables(from_df):
 
 
 # Load data from BigQuery
-for s in range (0, 1000):
-    query = """select * from `range-stability-model.simulation.parameters` where seed = @seed"""
+for s in range (0, 60):
+    query = """select * from `liquidity-simulation.simulations.data` where seed = @seed LIMIT 333"""
     job_config = bigquery.QueryJobConfig(
         query_parameters=[
             bigquery.ScalarQueryParameter("seed", "INT64", s),
@@ -116,15 +124,30 @@ for s in range (0, 1000):
     parameters_df = (
         client.query(query, job_config).result().to_dataframe(create_bqstorage_client=True)
     )
+
+    print(f"Current seed: {s}")
+    print(f"seed {s} status | START Printing data pulled from BigQuery")
     print(parameters_df)
-        
+    print(f"seed {s} status | END Printing data pulled from BigQuery")
+
     # Get all the historical data from the simulated scenario
+    print(f"seed {s} status | START Re-simulating data for all trials")
     historical_df = get_trial_variables(parameters_df)
+    print(f"seed {s} status | END Re-simulating data for all trials")
     print(historical_df)
 
+    # Load updated data
+    print(f"seed {s} status | START uploading data into BigQuery")
+    job = client.load_table_from_dataframe(
+        historical_df, table_id, job_config=job_config_upload, location="US"
+    )
+    job.result()
+    print(f"seed {s} status | END uploading data into BigQuery")
 
-###REPLACE
-    # # Save data into BigQuery
-    # table_id = 'simulation.historical'
-    # historical_df.to_gbq(destination_table=table_id, project_id='range-stability-model', credentials=service_account.Credentials.from_service_account_info(private_key), if_exists = 'append')
-###
+    # Print out confirmed job details
+    table = client.get_table(table_id)
+    print(
+        "seed status | Loaded {} rows and {} columns to {}".format(
+            table.num_rows, len(table.schema), table_id
+        )
+    )
