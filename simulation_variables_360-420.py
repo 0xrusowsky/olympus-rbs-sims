@@ -115,7 +115,7 @@ def get_trial_variables(from_df):
 
 # Load data from BigQuery
 for s in range (360, 420):
-    query = """select * from `liquidity-simulation.simulations.data` where seed = @seed LIMIT 333"""
+    query = """select * from `liquidity-simulation.simulations.data` where seed = @seed order by key asc LIMIT 333"""
     job_config = bigquery.QueryJobConfig(
         query_parameters=[
             bigquery.ScalarQueryParameter("seed", "INT64", s),
