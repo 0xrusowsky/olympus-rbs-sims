@@ -162,7 +162,8 @@ class Day():
                 self.reward_rate = rr_framework(prev_day.supply, params.with_dynamic_reward_rate, True)
             else:
                 self.reward_rate = rr_framework(prev_day.supply, params.with_dynamic_reward_rate, False)
-            self.supply = max(prev_day.supply * (1 + self.reward_rate) + prev_day.ohm_traded, 0)
+            #self.supply = max(prev_day.supply * (1 + self.reward_rate) + prev_day.ohm_traded, 0)
+            self.supply = max(prev_day.supply * (1 + self.reward_rate) + prev_day.ask_change_ohm - prev_day.bid_change_ohm, 0)
             self.ma_target = calc_price_target(params=params, prev_day=prev_day, prev_lags=prev_lags)
             self.prev_price = prev_day.price
 
@@ -352,8 +353,10 @@ class Day():
 
             self.ohm_traded = (self.price + prev_day.price) and (-2) * self.reserves_out / (self.price + prev_day.price) or 0
             self.cum_ohm_purchased = prev_day.cum_ohm_purchased - self.ohm_traded
-            self.cum_ohm_burnt = prev_day.cum_ohm_burnt - min(self.ohm_traded, 0)            
-            self.cum_ohm_minted = prev_day.cum_ohm_minted + max(self.ohm_traded, 0)
+            #self.cum_ohm_burnt = prev_day.cum_ohm_burnt - min(self.ohm_traded, 0)            
+            #self.cum_ohm_minted = prev_day.cum_ohm_minted + max(self.ohm_traded, 0)
+            self.cum_ohm_burnt = prev_day.cum_ohm_burnt + prev_day.bid_change_ohm
+            self.cum_ohm_minted = prev_day.cum_ohm_minted + prev_day.ask_change_ohm
 
 
             #still necessary? set it to zero, but need to double check with Zeus (cause he maintained it on his model)
