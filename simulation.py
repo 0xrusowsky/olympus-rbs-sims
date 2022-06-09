@@ -4,23 +4,29 @@ import random
 import optuna
 import os
 from google.cloud import bigquery
-from google.oauth2 import service_account
-
-from plotly.subplots import make_subplots
-import plotly.express as px
-pd.options.plotting.backend = "plotly"
 
 from src.utils import ModelParams, Day, short_sin, short_cos, long_sin, long_cos
 from src.init_functions import initial_params
 
-study_seed = 0
-private_key = os.environ["BIGQUERY_SECRET"]
+print("Starting seeds 1-60")
 
-client = bigquery.Client(credentials=service_account.Credentials.from_service_account_info(private_key))
+study_seed = 0
+
+# Initialize BigQuery Client
+client = bigquery.Client()
+
+# Set Dataset and Table
+table_id = "liquidity-simulation.simulations.data"
+
+# Set table schema and to overwrite
+job_config = bigquery.LoadJobConfig(
+    autodetect=True,
+    write_disposition="WRITE_APPEND",
+)
 
 
 # Simulate scenario with market operations
-def simulate (max_liq_ratio, ask_factor, cushion_factor, lower_wall, lower_cushion, mint_sync_premium, with_reinstate_window, with_dynamic_reward_rate, seed):
+def model_inputs (max_liq_ratio, ask_factor, cushion_factor, lower_wall, lower_cushion, mint_sync_premium, with_reinstate_window, with_dynamic_reward_rate, seed):
     netflow_type, historical_net_flows, price, target, supply, reserves, liq_usd = initial_params(
         netflow_type = 'random' # determines the netflow types. Either 'historical', 'random', or 'cycles' (sin/cos waves)
         ,initial_date = '2021/12/18' # determines the initial date to account for 'historical' netflows and initial params. (example: '2021/12/18')
@@ -87,23 +93,21 @@ def simulate (max_liq_ratio, ask_factor, cushion_factor, lower_wall, lower_cushi
 
     return simulation
 
-
-
-def objective(trial):
+def model_distributions(trial):
     global study_seed
     r = 0
 
     trial.set_user_attr("seed", study_seed)
-    simulation = simulate(seed = study_seed
-        ,max_liq_ratio = trial.suggest_float('maxLiqRatio', 0.1, 0.5, step=0.025)
-        ,ask_factor = trial.suggest_float('askFactor', 0.01, 0.1,  step=0.005)
-        ,cushion_factor = trial.suggest_float('cushionFactor', 0.1, 0.5, step=0.025)
-        ,lower_wall = trial.suggest_float('wall', 0.2, 0.3, step=0.01)
-        ,lower_cushion = trial.suggest_float('cushion', 0.1, 0.2, step=0.01)
-				,mint_sync_premium = trial.suggest_int('mintSyncPremium', 0, 3, step=1)
-				,with_reinstate_window = trial.suggest_categorical('withReinstateWindow', ['Yes','No'])
-				,with_dynamic_reward_rate = trial.suggest_categorical('withDynamicRR', ['Yes','No'])
-    )
+    simulation = model_inputs(seed = study_seed
+                              , max_liq_ratio = trial.suggest_float('maxLiqRatio', 0.1, 0.5, step=0.025)
+                              , ask_factor = trial.suggest_float('askFactor', 0.01, 0.1,  step=0.005)
+                              , cushion_factor = trial.suggest_float('cushionFactor', 0.1, 0.5, step=0.025)
+                              , lower_wall = trial.suggest_float('wall', 0.2, 0.3, step=0.01)
+                              , lower_cushion = trial.suggest_float('cushion', 0.1, 0.2, step=0.01)
+                              , mint_sync_premium = trial.suggest_int('mintSyncPremium', 0, 3, step=1)
+                              , with_reinstate_window = trial.suggest_categorical('withReinstateWindow', ['Yes','No'])
+                              , with_dynamic_reward_rate = trial.suggest_categorical('withDynamicRR', ['Yes','No'])
+                              )
 
     for day, data in simulation.items():
         r += data.treasury * data.mcap / (1 + data.gohm_volatility)
@@ -111,11 +115,11 @@ def objective(trial):
 
 
 # Simulate different parameter configurations with different seeds
-for i in range (0, 1000):
+for i in range (0, 60):
     study_seed = i
     study_name=f"study{i}"
     study = optuna.create_study(study_name=study_name, storage=f"sqlite:///{study_name}.db", direction='maximize')
-    study.optimize(objective, n_trials = 3333)
+    study.optimize(model_distributions, n_trials = 3333)
     study_df = study.trials_dataframe()
     study_df['key'] = study_df.user_attrs_seed.astype(str) + '_' + study_df.index.astype(str)
     parameters_df = pd.DataFrame.reindex(study_df, columns = ['key', 'user_attrs_seed', 'value', 'params_maxLiqRatio', 'params_askFactor', 'params_cushionFactor', 'params_wall', 'params_cushion', 'params_mintSyncPremium', 'params_withReinstateWindow', 'params_withDynamicRR'])
@@ -127,6 +131,19 @@ for i in range (0, 1000):
         elif name[:11] == 'user_attrs_':
             parameters_df.rename(columns={name:name[11:]}, inplace=True)
 
-    # Save data into BigQuery
-    table_id = 'simulation.parameters'
-    parameters_df.to_gbq(destination_table=table_id, project_id='range-stability-model', credentials=service_account.Credentials.from_service_account_info(private_key), if_exists = 'append')
+
+    # Load updated data
+    print(f"seed {study_seed} status | START uploading data into BigQuery")
+    job = client.load_table_from_dataframe(
+        parameters_df, table_id, job_config=job_config, location="US"
+    )
+    job.result()
+    print(f"seed {study_seed} status | END uploading data into BigQuery")
+
+    # Print out confirmed job details
+    table = client.get_table(table_id)
+    print(
+        "seed status | Loaded {} rows and {} columns to {}".format(
+            table.num_rows, len(table.schema), table_id
+        )
+    )

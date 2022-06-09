@@ -1,11 +1,14 @@
 import pandas as pd
 import numpy as np
 import random
+import optuna
 import os
 from google.cloud import bigquery
 
 from src.utils import ModelParams, Day, short_sin, short_cos, long_sin, long_cos
 from src.init_functions import initial_params
+
+print("Starting seeds 120-180")
 
 study_seed = 0
 
@@ -13,17 +16,16 @@ study_seed = 0
 client = bigquery.Client()
 
 # Set Dataset and Table
-table_id = "liquidity-simulation.simulations.daily_data"
+table_id = "liquidity-simulation.simulations.data"
 
 # Set table schema and to overwrite
-job_config_upload = bigquery.LoadJobConfig(
+job_config = bigquery.LoadJobConfig(
     autodetect=True,
     write_disposition="WRITE_APPEND",
 )
 
 
 # Simulate scenario with market operations
-
 def model_inputs (max_liq_ratio, ask_factor, cushion_factor, lower_wall, lower_cushion, mint_sync_premium, with_reinstate_window, with_dynamic_reward_rate, seed):
     netflow_type, historical_net_flows, price, target, supply, reserves, liq_usd = initial_params(
         netflow_type = 'random' # determines the netflow types. Either 'historical', 'random', or 'cycles' (sin/cos waves)
@@ -36,7 +38,7 @@ def model_inputs (max_liq_ratio, ask_factor, cushion_factor, lower_wall, lower_c
     )
 
     params = ModelParams(seed = seed  # seed number so all the simulations use the same randomness
-        ,horizon = 365  # simulation timespan.
+        ,horizon = 1000  # simulation timespan.
         ,short_cycle = 30  # short market cycle duration.
         ,cycle_reweights = 1  # reweights per short market cycle.
         ,long_cycle = 730  # long market cycle duration.
@@ -91,58 +93,52 @@ def model_inputs (max_liq_ratio, ask_factor, cushion_factor, lower_wall, lower_c
 
     return simulation
 
-def get_trial_variables(from_df):
-    
-    result_df = pd.DataFrame(columns = ['key', 'day', 'netFlow', 'price', 'realTarget', 'lowerTargetCushion', 'upperTargetCushion', 'lowerTargetWall', 'upperTargetWall', 'liqUSD', 'liqOHM', 'poolK', 'reservesUSD', 'reserveChange', 'reservesIN', 'reservesOUT', 'tradedOHM', 'treasury', 'supply', 'marketcap', 'floatingSupply', 'floatingMarketcap', 'liqRatio_liqTreasury', 'liqRatio_liqReserves', 'reserveRatio', 'liqFloatingMCRatio', 'floatingMCTreasuryPremium', 'cumPurchasedOHM', 'cumBurntOHM', 'bidCapacity', 'askCapacity', 'bidCapacityCushion', 'askCapacityCushion', 'bidCapacityTargetCushion', 'askCapacityTargetCushion', 'bidCapacityTarget', 'askCapacityTarget', 'askCount', 'bidCount', 'marketDemand', 'marketSupply', 'netTotal', 'gohm7dVolatility']) 
-        
-    for key, value in from_df.iterrows():
-        simulation = model_inputs(seed = value['seed']
-                                  , max_liq_ratio = value['maxLiqRatio']
-                                  , ask_factor = value['askFactor']
-                                  , cushion_factor = value['cushionFactor']
-                                  , lower_wall = value['wall']
-                                  , lower_cushion = value['cushion']
-                                  , mint_sync_premium = value['mintSyncPremium']
-                                  , with_reinstate_window = value['withReinstateWindow']
-                                  , with_dynamic_reward_rate = value['withDynamicRR']
-                                  )
+def model_distributions(trial):
+    global study_seed
+    r = 0
 
-        for day, data in simulation.items():
-            result_df.loc[len(result_df)] = [str(f'{value["seed"]}_{key}'), float(data.day), float(data.net_flow), float(data.price), float(data.ma_target), float(data.lower_target_cushion), float(data.upper_target_cushion), float(data.lower_target_wall), float(data.upper_target_wall), float(data.liq_usd), float(data.liq_ohm), float(data.k), float(data.reserves), float(100*data.reserves/data.prev_reserves), float(data.reserves_in), float(data.reserves_out), float(data.ohm_traded), float(data.treasury), float(data.supply), float(data.mcap), float(data.floating_supply), float(data.floating_mcap), float(data.liq_ratio), float(data.liq_usd/data.reserves), float(data.reserves_ratio), float(data.liq_fmcap_ratio), float(data.fmcap_treasury_ratio), float(data.cum_ohm_purchased), float(data.cum_ohm_burnt), float(data.bid_capacity), float(data.ask_capacity), float(data.bid_capacity_cushion), float(data.ask_capacity_cushion), float(data.bid_capacity_target_cushion), float(data.ask_capacity_target_cushion), float(data.bid_capacity_target), float(data.ask_capacity_target), float(data.control_ask), float(data.control_bid), float(data.market_demand), float(data.market_supply), float(data.total_net), float(data.gohm_volatility)]
+    trial.set_user_attr("seed", study_seed)
+    simulation = model_inputs(seed = study_seed
+                              , max_liq_ratio = trial.suggest_float('maxLiqRatio', 0.1, 0.5, step=0.025)
+                              , ask_factor = trial.suggest_float('askFactor', 0.01, 0.1,  step=0.005)
+                              , cushion_factor = trial.suggest_float('cushionFactor', 0.1, 0.5, step=0.025)
+                              , lower_wall = trial.suggest_float('wall', 0.2, 0.3, step=0.01)
+                              , lower_cushion = trial.suggest_float('cushion', 0.1, 0.2, step=0.01)
+                              , mint_sync_premium = trial.suggest_int('mintSyncPremium', 0, 3, step=1)
+                              , with_reinstate_window = trial.suggest_categorical('withReinstateWindow', ['Yes','No'])
+                              , with_dynamic_reward_rate = trial.suggest_categorical('withDynamicRR', ['Yes','No'])
+                              )
 
-    return result_df
+    for day, data in simulation.items():
+        r += data.treasury * data.mcap / (1 + data.gohm_volatility)
+    return r
 
 
-# Load data from BigQuery
-for s in range (0, 60):
-    query = """select * from `liquidity-simulation.simulations.data` where seed = @seed order by key asc LIMIT 333"""
-    job_config = bigquery.QueryJobConfig(
-        query_parameters=[
-            bigquery.ScalarQueryParameter("seed", "INT64", s),
-            ]
-        )
-    parameters_df = (
-        client.query(query, job_config).result().to_dataframe(create_bqstorage_client=True)
-    )
+# Simulate different parameter configurations with different seeds
+for i in range (120, 180):
+    study_seed = i
+    study_name=f"study{i}"
+    study = optuna.create_study(study_name=study_name, storage=f"sqlite:///{study_name}.db", direction='maximize')
+    study.optimize(model_distributions, n_trials = 3333)
+    study_df = study.trials_dataframe()
+    study_df['key'] = study_df.user_attrs_seed.astype(str) + '_' + study_df.index.astype(str)
+    parameters_df = pd.DataFrame.reindex(study_df, columns = ['key', 'user_attrs_seed', 'value', 'params_maxLiqRatio', 'params_askFactor', 'params_cushionFactor', 'params_wall', 'params_cushion', 'params_mintSyncPremium', 'params_withReinstateWindow', 'params_withDynamicRR'])
 
-    print(f"Current seed: {s}")
-    print(f"seed {s} status | START Printing data pulled from BigQuery")
-    print(parameters_df)
-    print(f"seed {s} status | END Printing data pulled from BigQuery")
+    # Clean df names
+    for name in parameters_df.columns:
+        if name[:7] == 'params_':
+            parameters_df.rename(columns={name:name[7:]}, inplace=True)
+        elif name[:11] == 'user_attrs_':
+            parameters_df.rename(columns={name:name[11:]}, inplace=True)
 
-    # Get all the historical data from the simulated scenario
-    print(f"seed {s} status | START Re-simulating data for all trials")
-    historical_df = get_trial_variables(parameters_df)
-    print(f"seed {s} status | END Re-simulating data for all trials")
-    print(historical_df)
 
     # Load updated data
-    print(f"seed {s} status | START uploading data into BigQuery")
+    print(f"seed {study_seed} status | START uploading data into BigQuery")
     job = client.load_table_from_dataframe(
-        historical_df, table_id, job_config=job_config_upload, location="US"
+        parameters_df, table_id, job_config=job_config, location="US"
     )
     job.result()
-    print(f"seed {s} status | END uploading data into BigQuery")
+    print(f"seed {study_seed} status | END uploading data into BigQuery")
 
     # Print out confirmed job details
     table = client.get_table(table_id)
