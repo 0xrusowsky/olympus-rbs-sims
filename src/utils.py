@@ -134,6 +134,8 @@ class Day():
             self.ask_capacity = self.ask_capacity_target
             self.bid_capacity_cushion = self.bid_capacity_target_cushion
             self.ask_capacity_cushion = self.ask_capacity_target_cushion
+            self.ask_change_ohm = 0
+            self.bid_change_ohm = 0
             
             self.prev_price = self.price
             self.prev_lower_target_wall = self.lower_target_wall
