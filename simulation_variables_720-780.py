@@ -47,8 +47,8 @@ def model_inputs (max_liq_ratio, ask_factor, cushion_factor, lower_wall, lower_c
         # Initial Parameters
         ,initial_supply = supply, initial_reserves = reserves, initial_liq_usd = liq_usd, initial_price = price, initial_target = target, target_price_function = 'price_moving_avg', netflow_type = netflow_type
 
-        ,demand_factor = 0.008  # % of OHM supply expected to drive market demand.
-        ,supply_factor = -0.008  # % of OHM supply expected to drive market sell preasure.
+        ,demand_factor = 0.016  # % of OHM supply expected to drive market demand.
+        ,supply_factor = -0.016  # % of OHM supply expected to drive market sell preasure.
         ,arb_factor = 0  # initial arb factor
         ,release_capture = 0  # % of reweight taken immediately by the market. --> I think it doesn't make sense anymore, that's why I set it to 0.
 
