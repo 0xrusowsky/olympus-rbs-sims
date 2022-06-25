@@ -13,7 +13,7 @@ study_seed = 0
 client = bigquery.Client()
 
 # Set Dataset and Table
-table_id = "liquidity-simulation.simulations.rusowsky_test_daily_data"
+table_id = "liquidity-simulation.simulations.daily_data"
 
 # Set table schema and to overwrite
 job_config_upload = bigquery.LoadJobConfig(
@@ -114,7 +114,7 @@ def get_trial_variables(from_df):
 
 
 # Load data from BigQuery
-for s in range (0, 101):
+for s in range (0, 60):
     query = """select * from `liquidity-simulation.simulations.data` where seed = @seed order by key asc LIMIT 333"""
     job_config = bigquery.QueryJobConfig(
         query_parameters=[
