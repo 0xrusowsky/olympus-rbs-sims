@@ -7,7 +7,7 @@ from google.cloud import bigquery
 from src.utils import ModelParams, Day, short_sin, short_cos, long_sin, long_cos
 from src.init_functions import initial_params
 
-print("Starting seeds 1-60")
+print("Starting seeds 0-101")
 
 credential_path = "C://Users//mmart//Documents//GitHub//liquidity-olympus//liquidity-simulation-f75447225789.json"
 os.environ['GOOGLE_APPLICATION_CREDENTIALS'] = credential_path
@@ -129,12 +129,11 @@ def model_distributions(seed, trial):
 
 
 # Simulate different parameter configurations with different seeds
-#for i in range (0, 60):
-for i in range (0, 2):
+for i in range (0, 101):
     seed = i
     parameters_df = pd.DataFrame(columns = ['key', 'seed', 'value', 'maxLiqRatio', 'askFactor', 'cushionFactor', 'wall', 'cushion', 'mintSyncPremium', 'withReinstateWindow', 'withDynamicRR'])
     #for j in range (0, 3333):
-    for j in range (0, 4):
+    for j in range (0, 11):
         seed, trial_params, r = model_distributions(i, j)
         parameters_df.loc[j] = [str(f'{seed}_{j}'), seed, r, trial_params[0], trial_params[1], trial_params[2], trial_params[3], trial_params[4], trial_params[5], trial_params[6], trial_params[7]]
 
