@@ -119,7 +119,7 @@ def get_trial_variables(from_df):
 
 
 # Load data from BigQuery
-for s in range (0, 3):
+for s in range (0, 101):
     query = """select * from `liquidity-simulation.simulations.rusowsky_test_data` where seed = @seed order by key asc LIMIT 333"""
     job_config = bigquery.QueryJobConfig(
         query_parameters=[
