@@ -13,7 +13,7 @@ study_seed = 0
 client = bigquery.Client()
 
 # Set Dataset and Table
-table_id = "liquidity-simulation.simulations.daily_data"
+table_id = "liquidity-simulation.simulations.rusowsky_test_daily_data"
 
 # Set table schema and to overwrite
 job_config_upload = bigquery.LoadJobConfig(
