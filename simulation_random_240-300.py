@@ -7,7 +7,7 @@ from google.cloud import bigquery
 from src.utils import ModelParams, Day, short_sin, short_cos, long_sin, long_cos
 from src.init_functions import initial_params
 
-print("Starting seeds 0-101")
+print("Starting seeds 240-300")
 
 credential_path = "C://Users//mmart//Documents//GitHub//liquidity-olympus//liquidity-simulation-f75447225789.json"
 os.environ['GOOGLE_APPLICATION_CREDENTIALS'] = credential_path
@@ -24,7 +24,7 @@ job_config = bigquery.LoadJobConfig(
     autodetect=True,
     write_disposition="WRITE_APPEND",
 )
-y
+
 
 # Simulate scenario with market operations
 def model_inputs (max_liq_ratio, ask_factor, cushion_factor, lower_wall, lower_cushion, mint_sync_premium, with_reinstate_window, with_dynamic_reward_rate, seed):
@@ -121,19 +121,15 @@ def model_distributions(seed, trial):
 
     for day, data in simulation.items():
         r += data.treasury * data.mcap / (1 + data.gohm_volatility)
-        if data.day == 2:
-            print(f'netflow day2: {data.net_flow}')
-
 
     return (seed, trial_params, r)
 
 
 # Simulate different parameter configurations with different seeds
-for i in range (0, 101):
+for i in range (240, 300):
     seed = i
     parameters_df = pd.DataFrame(columns = ['key', 'seed', 'value', 'maxLiqRatio', 'askFactor', 'cushionFactor', 'wall', 'cushion', 'mintSyncPremium', 'withReinstateWindow', 'withDynamicRR'])
-    #for j in range (0, 3333):
-    for j in range (0, 11):
+    for j in range (0, 3333):
         seed, trial_params, r = model_distributions(i, j)
         parameters_df.loc[j] = [str(f'{seed}_{j}'), seed, r, trial_params[0], trial_params[1], trial_params[2], trial_params[3], trial_params[4], trial_params[5], trial_params[6], trial_params[7]]
 
