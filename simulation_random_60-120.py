@@ -17,7 +17,7 @@ os.environ['GOOGLE_APPLICATION_CREDENTIALS'] = credential_path
 client = bigquery.Client()
 
 # Set Dataset and Table
-table_id = "liquidity-simulation.simulations.rusowsky_test_data"
+table_id = "liquidity-simulation.liquidity_simulations.random_data"
 
 # Set table schema and to overwrite
 job_config = bigquery.LoadJobConfig(
