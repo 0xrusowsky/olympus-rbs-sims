@@ -12,8 +12,16 @@ study_seed = 0
 # Initialize BigQuery Client
 client = bigquery.Client()
 
-# Set Dataset and Table
-table_id = "liquidity-simulation.simulations.daily_data"
+# Import Dataset and Table ID + Initial values for protocol variables
+with open('src/price.txt') as f:
+    initial_variables=[]
+    lines = f.readlines()
+    read_table_id = lines[0].split()[1]
+    table_id = lines[1].split()[1]
+    for line in lines[2:]:
+        p = line.split()
+        initial_variables.append(float(p[1]))
+
 
 # Set table schema and to overwrite
 job_config_upload = bigquery.LoadJobConfig(
@@ -23,16 +31,15 @@ job_config_upload = bigquery.LoadJobConfig(
 
 
 # Simulate scenario with market operations
-
-def model_inputs (max_liq_ratio, ask_factor, cushion_factor, lower_wall, lower_cushion, mint_sync_premium, with_reinstate_window, with_dynamic_reward_rate, seed):
+def model_inputs (initial_variables, max_liq_ratio, ask_factor, cushion_factor, lower_wall, lower_cushion, mint_sync_premium, with_reinstate_window, with_dynamic_reward_rate, seed):
     netflow_type, historical_net_flows, price, target, supply, reserves, liq_usd = initial_params(
         netflow_type = 'random' # determines the netflow types. Either 'historical', 'random', or 'cycles' (sin/cos waves)
         ,initial_date = '2021/12/18' # determines the initial date to account for 'historical' netflows and initial params. (example: '2021/12/18')
-        ,initial_supply = 25000000
-        ,initial_reserves = 250000000
-        ,initial_liq_usd = 25000000
-        ,initial_price = 30
-        ,initial_target = 30
+        ,initial_supply = initial_variables[0]
+        ,initial_reserves = initial_variables[1]
+        ,initial_liq_usd = initial_variables[2]
+        ,initial_price = initial_variables[3]
+        ,initial_target = initial_variables[4]
     )
 
     params = ModelParams(seed = seed  # seed number so all the simulations use the same randomness
@@ -91,7 +98,7 @@ def model_inputs (max_liq_ratio, ask_factor, cushion_factor, lower_wall, lower_c
 
     return simulation
 
-def get_trial_variables(from_df):
+def get_trial_variables(from_df, initial_variables):
     
     result_df = pd.DataFrame(columns = ['key', 'day', 'netFlow', 'price', 'realTarget', 'lowerTargetCushion', 'upperTargetCushion', 'lowerTargetWall', 'upperTargetWall', 'liqUSD', 'liqOHM', 'poolK', 'reservesUSD', 'reserveChange', 'reservesIN', 'reservesOUT', 'tradedOHM', 'treasury', 'supply', 'marketcap', 'floatingSupply', 'floatingMarketcap', 'liqRatio_liqTreasury', 'liqRatio_liqReserves', 'reserveRatio', 'liqFloatingMCRatio', 'floatingMCTreasuryPremium', 'cumPurchasedOHM', 'cumBurntOHM', 'bidCapacity', 'askCapacity', 'bidCapacityCushion', 'askCapacityCushion', 'bidCapacityTargetCushion', 'askCapacityTargetCushion', 'bidCapacityTarget', 'askCapacityTarget', 'askCount', 'bidCount', 'marketDemand', 'marketSupply', 'netTotal', 'gohm7dVolatility']) 
         
@@ -105,6 +112,7 @@ def get_trial_variables(from_df):
                                   , mint_sync_premium = value['mintSyncPremium']
                                   , with_reinstate_window = value['withReinstateWindow']
                                   , with_dynamic_reward_rate = value['withDynamicRR']
+                                  ,initial_variables = initial_variables
                                   )
 
         for day, data in simulation.items():
@@ -115,7 +123,7 @@ def get_trial_variables(from_df):
 
 # Load data from BigQuery
 for s in range (0, 60):
-    query = """select * from `liquidity-simulation.simulations.data` where seed = @seed order by key asc LIMIT 333"""
+    query = query = f"""select * from `{read_table_id}` where seed = @seed order by key asc LIMIT 1000"""
     job_config = bigquery.QueryJobConfig(
         query_parameters=[
             bigquery.ScalarQueryParameter("seed", "INT64", s),
@@ -132,7 +140,7 @@ for s in range (0, 60):
 
     # Get all the historical data from the simulated scenario
     print(f"seed {s} status | START Re-simulating data for all trials")
-    historical_df = get_trial_variables(parameters_df)
+    historical_df = get_trial_variables(parameters_df, initial_variables)
     print(f"seed {s} status | END Re-simulating data for all trials")
     print(historical_df)
 

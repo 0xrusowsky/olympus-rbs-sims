@@ -9,15 +9,17 @@ from src.init_functions import initial_params
 
 print("Starting seeds 0-60")
 
-credential_path = "C://Users//mmart//Documents//GitHub//liquidity-olympus//liquidity-simulation-f75447225789.json"
-os.environ['GOOGLE_APPLICATION_CREDENTIALS'] = credential_path
-
-
 # Initialize BigQuery Client
 client = bigquery.Client()
 
-# Set Dataset and Table
-table_id = "liquidity-simulation.liquidity_simulations.random_data"
+# Import Dataset and Table ID + Initial values for protocol variables
+with open('src/price.txt') as f:
+    initial_variables=[]
+    lines = f.readlines()
+    table_id = lines[0].split()[1]
+    for line in lines[2:]:
+        p = line.split()
+        initial_variables.append(float(p[1]))
 
 # Set table schema and to overwrite
 job_config = bigquery.LoadJobConfig(
@@ -39,7 +41,7 @@ def model_inputs (initial_variables, max_liq_ratio, ask_factor, cushion_factor, 
     )
 
     params = ModelParams(seed = seed  # seed number so all the simulations use the same randomness
-        ,horizon = 1000  # simulation timespan.
+        ,horizon = 365  # simulation timespan.
         ,short_cycle = 30  # short market cycle duration.
         ,cycle_reweights = 1  # reweights per short market cycle.
         ,long_cycle = 730  # long market cycle duration.
@@ -117,7 +119,7 @@ def model_distributions(seed, trial, initial_variables):
                               ,mint_sync_premium = trial_params[5]
                               ,with_reinstate_window = trial_params[6]
                               ,with_dynamic_reward_rate = trial_params[7]
-                              ,initial_variables)
+                              ,initial_variables = initial_variables)
 
     for day, data in simulation.items():
         r += data.treasury * data.mcap / (1 + data.gohm_volatility)
@@ -125,19 +127,11 @@ def model_distributions(seed, trial, initial_variables):
     return (seed, trial_params, r)
 
 
-# Import initial values for protocol variables
-with open('src/price.txt') as f:
-    initial_variables=[]
-    lines = f.readlines()
-    for line in lines:
-        p = line.split()
-        initial_variables.append(float(p[1]))
-
 # Simulate different parameter configurations with different seeds
 for i in range (0, 60):
     seed = i
     parameters_df = pd.DataFrame(columns = ['key', 'seed', 'value', 'maxLiqRatio', 'askFactor', 'cushionFactor', 'wall', 'cushion', 'mintSyncPremium', 'withReinstateWindow', 'withDynamicRR'])
-    for j in range (0, 3333):
+    for j in range (0, 1000):
         seed, trial_params, r = model_distributions(i, j, initial_variables)
         parameters_df.loc[j] = [str(f'{seed}_{j}'), seed, r, trial_params[0], trial_params[1], trial_params[2], trial_params[3], trial_params[4], trial_params[5], trial_params[6], trial_params[7]]
 
