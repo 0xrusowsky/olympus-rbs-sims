@@ -67,7 +67,7 @@ class ModelParams():
         self.max_liq_ratio = max_liq_ratio
         self.min_premium_target = min_premium_target
         self.release_capture = release_capture
-        self.max_outflow_rate = max_outflow_rate        
+        self.max_outflow_rate = max_outflow_rate
         self.with_reinstate_window = with_reinstate_window
         self.with_dynamic_reward_rate = with_dynamic_reward_rate
         self.demand_factor = demand_factor
@@ -203,7 +203,8 @@ class Day():
             if params.netflow_type == 'historical' and historical_net_flows is not None:
                 self.net_flow = historical_net_flows
             else:
-                self.net_flow = random.uniform(prev_day.treasury * prev_day.total_supply, prev_day.treasury * prev_day.total_demand) + prev_day.release_capture
+                #self.net_flow = random.uniform(prev_day.treasury * prev_day.total_supply, prev_day.treasury * prev_day.total_demand) + prev_day.release_capture
+                self.net_flow = random.uniform(prev_day.treasury * prev_day.total_supply, prev_day.treasury * prev_day.total_demand) - (prev_day.supply * prev_day.reward_rate * prev_day.price * prev_day.fmcap_treasury_ratio / 30) + prev_day.release_capture
 
             if params.netflow_type == 'historical' and historical_net_flows is not None:
                 self.market_demand = 0
@@ -224,15 +225,18 @@ class Day():
             
             
             # Reserve Intake
-            if prev_day.reserves * (1 - params.max_liq_ratio) < prev_day.liq_usd * params.max_liq_ratio:
-                self.reserves_in = (prev_day.liq_usd * params.max_liq_ratio - prev_day.reserves * (1 - params.max_liq_ratio)) / (params.reserve_change_speed * params.short_cycle)
+            if self.day % 7 == 0:  # Rebalance once a week
+                if prev_day.reserves * (1 - params.max_liq_ratio) < prev_day.liq_usd * params.max_liq_ratio:
+                    self.reserves_in = (prev_day.liq_usd * params.max_liq_ratio - prev_day.reserves * (1 - params.max_liq_ratio)) / (params.reserve_change_speed * params.short_cycle)
+                else:
+                    self.reserves_in = -2 * (prev_day.reserves * params.max_liq_ratio - prev_day.liq_usd * (1 - params.max_liq_ratio)) / (params.reserve_change_speed * params.short_cycle)
+                
+                if self.reserves_in < (-1) * prev_day.reserves:  # Ensure that the reserve release is limited by the total reserves left
+                    self.reserves = (-1) * prev_day.reserves                
+                if self.reserves_in < (-1) * prev_day.reserves * params.max_outflow_rate:  # Ensure that the reserve release is limited by the max_outflow_rate
+                    self.reserves_in = (-1) * prev_day.reserves * params.max_outflow_rate
             else:
-                self.reserves_in = -2 * (prev_day.reserves * params.max_liq_ratio - prev_day.liq_usd * (1 - params.max_liq_ratio)) / (params.reserve_change_speed * params.short_cycle)
-            
-            if self.reserves_in < (-1) * prev_day.reserves:  # Ensure that the reserve release is limited by the total reserves left
-                self.reserves = (-1) * prev_day.reserves                
-            if self.reserves_in < (-1) * prev_day.reserves * params.max_outflow_rate:  # Ensure that the reserve release is limited by the max_outflow_rate
-                self.reserves_in = (-1) * prev_day.reserves * params.max_outflow_rate
+                self.reserves_in = 0
 
             natural_price = ((self.net_flow - self.reserves_in + prev_day.liq_usd) ** 2) / self.k
 
