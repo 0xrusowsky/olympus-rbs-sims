@@ -28,7 +28,7 @@ def long_cos(day:int, cycle:int, offset:float, amplitude:float):
 
 
 # Reward rate framework
-def rr_framework(supply:int, with_dynamic_reward_rate:str, out_of_range:bool):
+def rr_framework(supply:int, with_dynamic_reward_rate:str, rr_controller:int, version="v1"):
     if supply > 10000000000000:
       r = 0.0000625
     elif supply > 1000000000000:
@@ -46,10 +46,26 @@ def rr_framework(supply:int, with_dynamic_reward_rate:str, out_of_range:bool):
     else:
       r = 0.004
     
-    if with_dynamic_reward_rate == 'Yes' and out_of_range is True:
-        return r/2
-    else:
-        return r
+    if version == "v0": # controller v0
+        if with_dynamic_reward_rate == 'Yes' and rr_controller != 9:
+            return r/2
+        else:
+            return r
+            
+    elif version == "v1": # controller v1
+        if rr_controller == -3: #below backing
+            return 0
+        elif rr_controller == -2: #below wall
+            return r * (-1.5)
+        elif rr_controller == -1: #below cushion
+            return r * (-1.25)
+        elif rr_controller == 2: #above premium of 3
+            return r * (1.25)
+        elif rr_controller == 1: #above wall
+            return r * (1.125)
+        elif rr_controller == 0: #inside range, as usual
+            return r
+
 
 
 class ModelParams():
@@ -100,7 +116,7 @@ class Day():
         if prev_day is None:
             self.day = 1
             self.supply = params.initial_supply
-            self.reward_rate = rr_framework(self.supply, params.with_dynamic_reward_rate, False)
+            self.reward_rate = rr_framework(self.supply, params.with_dynamic_reward_rate, 0)
             self.price = params.initial_price
             self.liq_usd = params.initial_liq_usd
             self.liq_ohm = self.liq_usd / self.price
@@ -160,11 +176,30 @@ class Day():
             
         else:
             self.day = prev_day.day + 1
-            if prev_day.price < prev_day.lower_target_wall:
-                self.reward_rate = rr_framework(prev_day.supply, params.with_dynamic_reward_rate, True)
+        #decrease reward rate
+            #below backing
+            if prev_day.fmcap_treasury_ratio < 1:                
+                self.reward_rate = rr_framework(prev_day.supply, params.with_dynamic_reward_rate, -3)
+            #below wall
+            elif prev_day.price < prev_day.lower_target_wall:
+                self.reward_rate = rr_framework(prev_day.supply, params.with_dynamic_reward_rate, -2)
+            #below cushion
+            elif prev_day.price < prev_day.lower_target_cushion:
+                self.reward_rate = rr_framework(prev_day.supply, params.with_dynamic_reward_rate, -1)
+
+        #increase reward rate
+            #above 3x premium
+            elif prev_day.fmcap_treasury_ratio > 3:
+                self.reward_rate = rr_framework(prev_day.supply, params.with_dynamic_reward_rate, 2)
+            #above wall
+            elif prev_day.price > prev_day.lower_target_wall:
+                self.reward_rate = rr_framework(prev_day.supply, params.with_dynamic_reward_rate, 1)
+
+        #framework reward rate
             else:
-                self.reward_rate = rr_framework(prev_day.supply, params.with_dynamic_reward_rate, False)
-            #self.supply = max(prev_day.supply * (1 + self.reward_rate) + prev_day.ohm_traded, 0)
+                self.reward_rate = rr_framework(prev_day.supply, params.with_dynamic_reward_rate, 0)
+
+
             self.supply = max(prev_day.supply * (1 + self.reward_rate) + prev_day.ask_change_ohm - prev_day.bid_change_ohm, 0)
             self.ma_target = calc_price_target(params=params, prev_day=prev_day, prev_lags=prev_lags)
             self.prev_price = prev_day.price
