@@ -239,7 +239,7 @@ class Day():
                 self.net_flow = historical_net_flows
             else:
                 #self.net_flow = random.uniform(prev_day.treasury * prev_day.total_supply, prev_day.treasury * prev_day.total_demand) + prev_day.release_capture
-                self.net_flow = random.uniform(prev_day.treasury * prev_day.total_supply, prev_day.treasury * prev_day.total_demand) - (prev_day.supply * prev_day.reward_rate * prev_day.price * prev_day.fmcap_treasury_ratio / 30) + prev_day.release_capture
+                self.net_flow = random.uniform(prev_day.treasury * prev_day.total_supply, prev_day.treasury * prev_day.total_demand) - (prev_day.supply * prev_day.reward_rate * prev_day.price / 10) + prev_day.release_capture
 
             if params.netflow_type == 'historical' and historical_net_flows is not None:
                 self.market_demand = 0
