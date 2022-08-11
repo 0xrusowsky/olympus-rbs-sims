@@ -46,7 +46,7 @@ def rr_framework(supply:int, with_dynamic_reward_rate:str, rr_controller:int, ve
     else:
       r = 0.004
     
-    
+
     if with_dynamic_reward_rate == 'Yes':
         return r
     else:
