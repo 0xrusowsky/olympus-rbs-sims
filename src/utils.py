@@ -46,25 +46,27 @@ def rr_framework(supply:int, with_dynamic_reward_rate:str, rr_controller:int, ve
     else:
       r = 0.004
     
-    if version == "v0": # controller v0
-        if with_dynamic_reward_rate == 'Yes' and rr_controller != 9:
-            return r/2
-        else:
-            return r
-            
-    elif version == "v1": # controller v1
-        if rr_controller == -3: #below backing
-            return 0
-        elif rr_controller == -2: #below wall
-            return r * (-1.5)
-        elif rr_controller == -1: #below cushion
-            return r * (-1.25)
-        elif rr_controller == 2: #above premium of 3
-            return r * (1.25)
-        elif rr_controller == 1: #above wall
-            return r * (1.125)
-        elif rr_controller == 0: #inside range, as usual
-            return r
+    
+    if with_dynamic_reward_rate == 'Yes':
+        return r
+    else:
+        if version == "v0": # controller v0
+            if rr_controller != 9:
+                return r/2
+
+        elif version == "v1": # controller v1
+            if rr_controller == -3: #below backing
+                return 0
+            elif rr_controller == -2: #below wall
+                return r * (-1.5)
+            elif rr_controller == -1: #below cushion
+                return r * (-1.25)
+            elif rr_controller == 2: #above premium of 3
+                return r * (1.25)
+            elif rr_controller == 1: #above wall
+                return r * (1.125)
+            elif rr_controller == 0: #inside range, as usual
+                return r
 
 
 
@@ -239,7 +241,7 @@ class Day():
                 self.net_flow = historical_net_flows
             else:
                 #self.net_flow = random.uniform(prev_day.treasury * prev_day.total_supply, prev_day.treasury * prev_day.total_demand) + prev_day.release_capture
-                self.net_flow = random.uniform(prev_day.treasury * prev_day.total_supply, prev_day.treasury * prev_day.total_demand) - (prev_day.supply * prev_day.reward_rate * prev_day.price * prev_day.fmcap_treasury_ratio / 30) + prev_day.release_capture
+                self.net_flow = random.uniform(prev_day.treasury * prev_day.total_supply, prev_day.treasury * prev_day.total_demand) - (prev_day.supply * prev_day.reward_rate * prev_day.price / 10) + prev_day.release_capture
 
             if params.netflow_type == 'historical' and historical_net_flows is not None:
                 self.market_demand = 0
