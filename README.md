@@ -1,5 +1,40 @@
-# forward-guidance
-This jupyter notebook aims to provide a playground to simulate different scenarios for the so-called "Forward Guidance", a model ideated by Zeus.
+# range-bound-stability
+This repo contains all the code behind the modeling tools used to simulate the so-called "Range Bounds Stability" (RBS), a model ideated by Zeus.
+
+**Disclaimers:**
+- _The model aims to be representative of reality, but some simplifications have been assumed._
+- _Since the idea has been evolving and maturing with time, this implementation may contain some outdated functions that are not used anymore. Over time, I will try to get rid of these deprecated items._
+
+# design principles
+
+- The main goal of this initiative is to understand how the different parameters of the RBS model impact protocol variables such as price, marketcap, liquidity, reserves, and volatility. This goal will be achieved by performing millions of simulations with different parameter configurations and market conditions.
+
+- After the completion of this goal the policy team should be able to propose a parameter configuration to perform further simulations/tests using the testnet smartcontract implementation of the RBS.
+
+- Since the model is governed by a lot of different parameters and it is unfeasible to analyze and understand the impact of all of them at once, the study approach has been to:
+  1. Analyze the parameters that are believed to be more influential and fix the rest of the parameters.
+  2. Reach conclusions on the best performing values for the tested parameters.
+  3. Perform another round of simulations, by fixing the parameters for which some good-performing values have been found, and analyze the rest of the parameters.
+  
+- To initially verify the model and to give users more flexibility, a fully customizable jupyter notebook to run single simulations has been created.
+
+- Since the policy team aims to come up with a robust parameter configuration, no agent-modeling behavior assumptions have been done. Instead, a Montecarlo (random market behavior) approach has been followed. Theoretically, this design choice ensures that a wider variety of market conditions (including edge cases and "not realistic" market behaviors) have been tested.
+
+- The simulated data has been stored in BigQuery tables and analyzed using Tableau. Since it is unfeasible to analyze all the seeds independently, they have been grouped into market scenarios (`a-really-bullish`, `b-bullish`, `c-neutral-bullish`, `d-neutral-bearish`, `e-bearish`, `e-really-bearish`)
+
+# scripts
+- `liquidity-olympus/src/utils.py`: Contains all the equations that govern the RBS model. Also contains relevant functions such as the reward rate framework.
+- `liquidity-olympus/src/price.txt`: Contains the name of the BQ tables to be created and the initial protocol variables' values.
+- `liquidity-olympus/src/init_functions.py`: Reads and loads the values from `price.txt`.
+- `liquidity-olympus/simulation_random_XXX.py`: Scripts where the configuration of a simulation batch is set up. Determines the seeds and the parameter configuration for each trial within that seed. Write this configuration in a BQ table.
+- `liquidity-olympus/simulation_variables_XXX.py`: Scripts that write the daily variable values in another BQ table. Use the trial configurations determined in `simulation_random_XXX.py`.
+- `model_sim.js`: Paralellizes the execution of the `simulation_random_XXX.py` scripts.
+- `model_daily.js`: Paralellizes the execution of the `simulation_variables_XXX.py` scripts.
+
+---
+# old readme
+
+jupyter notebook aims to provide a playground to simulate different scenarios for the so-called "Forward Guidance", a model ideated by Zeus.
 
 The notebook is created in such a way that different price controllers can be tested. The only requirement is to create new price controlling functions to calculate the `price_target` using different methods.
 
