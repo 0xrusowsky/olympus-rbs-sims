@@ -58,9 +58,9 @@ def rr_framework(supply:int, with_dynamic_reward_rate:str, rr_controller:int, ve
             if rr_controller == -3: #below backing
                 return 0
             elif rr_controller == -2: #below wall
-                return r * (-1.5)
+                return r * (0.5)
             elif rr_controller == -1: #below cushion
-                return r * (-1.25)
+                return r * (0.75)
             elif rr_controller == 2: #above premium of 3
                 return r * (1.25)
             elif rr_controller == 1: #above wall
