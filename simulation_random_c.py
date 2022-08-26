@@ -7,7 +7,7 @@ from google.cloud import bigquery
 from src.utils import ModelParams, Day, short_sin, short_cos, long_sin, long_cos
 from src.init_functions import initial_params
 
-print("Starting seeds 0-60")
+print("Starting seeds 0-10k")
 
 # Initialize BigQuery Client
 client = bigquery.Client()
@@ -100,14 +100,14 @@ def model_distributions(seed, trial, initial_variables):
     r = 0
     random.seed(seed*trial + trial)
 
-    trial_params = (random.choice([i/1000 for i in range(100, 501, 25)])
-                   ,random.choice([i/1000 for i in range(10, 101, 5)])
-                   ,random.choice([i/1000 for i in range(100, 501, 25)])
-                   ,random.choice([i/100 for i in range(20, 31, 1)])
-                   ,random.choice([i/100 for i in range(10, 21, 1)])
-                   ,random.choice([i for i in range(0, 4, 1)])
-                   ,random.choice(['Yes','No'])
-                   ,random.choice(['Yes','No'])
+    trial_params = ([0.2] #random.choice([i/1000 for i in range(100, 501, 25)])
+                   ,[0.075] #random.choice([i/1000 for i in range(10, 101, 5)])
+                   ,[0.3] #random.choice([i/1000 for i in range(100, 501, 25)])
+                   ,[0.028] #random.choice([i/100 for i in range(20, 31, 1)])
+                   ,[0.15] #random.choice([i/100 for i in range(10, 21, 1)])
+                   ,[0] #random.choice([i for i in range(0, 4, 1)])
+                   ,['No'] #random.choice(['Yes','No'])
+                   ,['No'] #random.choice(['Yes','No'])
                    )
 
     simulation = model_inputs(seed = seed
@@ -128,12 +128,12 @@ def model_distributions(seed, trial, initial_variables):
 
 
 # Simulate different parameter configurations with different seeds
-for i in [2, 82, 173, 307, 455, 497, 547, 609, 868, 908, 961]:
+for i in range (0, 5000):
     seed = i
     parameters_df = pd.DataFrame(columns = ['key', 'seed', 'value', 'maxLiqRatio', 'askFactor', 'cushionFactor', 'wall', 'cushion', 'mintSyncPremium', 'withReinstateWindow', 'withDynamicRR'])
-    for j in range (0, 1000):
+    for j in [3]:
         seed, trial_params, r = model_distributions(i, j, initial_variables)
-        parameters_df.loc[j] = [str(f'{seed}_{j}'), seed, r, trial_params[0], trial_params[1], trial_params[2], trial_params[3], trial_params[4], trial_params[5], trial_params[6], trial_params[7]]
+        parameters_df.loc[j] = [str(f'{seed}_{str(j).zfill(3)}'), seed, r, trial_params[0], trial_params[1], trial_params[2], trial_params[3], trial_params[4], trial_params[5], trial_params[6], trial_params[7]]
 
     # Load updated data
     print(f"seed {seed} status | START uploading data into BigQuery")

@@ -104,14 +104,14 @@ def get_trial_variables(from_df, initial_variables):
         
     for key, value in from_df.iterrows():
         simulation = model_inputs(seed = value['seed']
-                                  , max_liq_ratio = value['maxLiqRatio']
-                                  , ask_factor = value['askFactor']
-                                  , cushion_factor = value['cushionFactor']
-                                  , lower_wall = value['wall']
-                                  , lower_cushion = value['cushion']
-                                  , mint_sync_premium = value['mintSyncPremium']
-                                  , with_reinstate_window = value['withReinstateWindow']
-                                  , with_dynamic_reward_rate = value['withDynamicRR']
+                                  ,max_liq_ratio = value['maxLiqRatio']
+                                  ,ask_factor = value['askFactor']
+                                  ,cushion_factor = value['cushionFactor']
+                                  ,lower_wall = value['wall']
+                                  ,lower_cushion = value['cushion']
+                                  ,mint_sync_premium = value['mintSyncPremium']
+                                  ,with_reinstate_window = value['withReinstateWindow']
+                                  ,with_dynamic_reward_rate = value['withDynamicRR']
                                   ,initial_variables = initial_variables
                                   )
 
@@ -122,11 +122,13 @@ def get_trial_variables(from_df, initial_variables):
 
 
 # Load data from BigQuery
-for s in [178, 423, 93, 926, 169, 594, 404, 161]:
-    query = query = f"""select * from `{read_table_id}` where seed = @seed order by key asc LIMIT 1000"""
+for s in range (0, 5000):
+    t = 9
+    query = query = f"""select * from `{read_table_id}` where seed = @seed and cast(right(key,3) as int64) = @trial order by seed asc"""
     job_config = bigquery.QueryJobConfig(
         query_parameters=[
             bigquery.ScalarQueryParameter("seed", "INT64", s),
+            bigquery.ScalarQueryParameter("trial", "INT64", t),
             ]
         )
     parameters_df = (
