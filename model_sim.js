@@ -1,4 +1,4 @@
-const { spawn } = require('//child_process');
+const { spawn } = require('child_process');
 
 const child1 = spawn('python3', ["./simulation_random_a.py"]);
 const child2 = spawn('python3', ["./simulation_random_b.py"]);
