@@ -129,9 +129,9 @@ def model_distributions(seed, trial, initial_variables):
 
 
 # Simulate different parameter configurations with different seeds
+parameters_df = pd.DataFrame(columns = ['key', 'seed', 'value', 'maxLiqRatio', 'askFactor', 'cushionFactor', 'wall', 'cushion', 'mintSyncPremium', 'withReinstateWindow', 'withDynamicRR'])
 for i in range (0, 5000):
     seed = i
-    parameters_df = pd.DataFrame(columns = ['key', 'seed', 'value', 'maxLiqRatio', 'askFactor', 'cushionFactor', 'wall', 'cushion', 'mintSyncPremium', 'withReinstateWindow', 'withDynamicRR'])
     for j in [37]:
         seed, trial_params, r = model_distributions(i, j, initial_variables)
         parameters_df.loc[j] = [str(f'{seed}_{str(j).zfill(3)}'), seed, r, trial_params[0], trial_params[1], trial_params[2], trial_params[3], trial_params[4], trial_params[5], trial_params[6], trial_params[7]]

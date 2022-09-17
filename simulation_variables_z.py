@@ -122,42 +122,40 @@ def get_trial_variables(from_df, initial_variables):
 
 
 # Load data from BigQuery
-for s in range (0, 5000):
-    t = 26
-    query = query = f"""select * from `{read_table_id}` where seed = @seed and cast(right(key,3) as int64) = @trial order by seed asc"""
-    job_config = bigquery.QueryJobConfig(
-        query_parameters=[
-            bigquery.ScalarQueryParameter("seed", "INT64", s),
-            bigquery.ScalarQueryParameter("trial", "INT64", t),
-            ]
-        )
-    parameters_df = (
-        client.query(query, job_config).result().to_dataframe(create_bqstorage_client=True)
+t = 26
+query = f"""select * from `{read_table_id}` where cast(right(key,3) as int64) = @trial order by seed asc"""
+job_config = bigquery.QueryJobConfig(
+    query_parameters=[
+        bigquery.ScalarQueryParameter("trial", "INT64", t),
+        ]
     )
+parameters_df = (
+    client.query(query, job_config).result().to_dataframe(create_bqstorage_client=True)
+)
 
-    print(f"Current seed: {s}")
-    print(f"seed {s} status | START Printing data pulled from BigQuery")
-    print(parameters_df)
-    print(f"seed {s} status | END Printing data pulled from BigQuery")
+print(f"Current config: {t}")
+print(f"config {t} status | START Printing data pulled from BigQuery")
+print(parameters_df)
+print(f"config {t} status | END Printing data pulled from BigQuery")
 
-    # Get all the historical data from the simulated scenario
-    print(f"seed {s} status | START Re-simulating data for all trials")
-    historical_df = get_trial_variables(parameters_df, initial_variables)
-    print(f"seed {s} status | END Re-simulating data for all trials")
-    print(historical_df)
+# Get all the historical data from the simulated scenario
+print(f"config {t} status | START Re-simulating data for all trials")
+historical_df = get_trial_variables(parameters_df, initial_variables)
+print(f"config {t} status | END Re-simulating data for all trials")
+print(historical_df)
 
-    # Load updated data
-    print(f"seed {s} status | START uploading data into BigQuery")
-    job = client.load_table_from_dataframe(
-        historical_df, table_id, job_config=job_config_upload, location="US"
+# Load updated data
+print(f"config {t} status | START uploading data into BigQuery")
+job = client.load_table_from_dataframe(
+    historical_df, table_id, job_config=job_config_upload, location="US"
+)
+job.result()
+print(f"config {t} status | END uploading data into BigQuery")
+
+# Print out confirmed job details
+table = client.get_table(table_id)
+print(
+    "config status | Loaded {} rows and {} columns to {}".format(
+        table.num_rows, len(table.schema), table_id
     )
-    job.result()
-    print(f"seed {s} status | END uploading data into BigQuery")
-
-    # Print out confirmed job details
-    table = client.get_table(table_id)
-    print(
-        "seed status | Loaded {} rows and {} columns to {}".format(
-            table.num_rows, len(table.schema), table_id
-        )
-    )
+)
