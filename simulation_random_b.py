@@ -104,7 +104,7 @@ def model_distributions(seed, trial, initial_variables):
     trial_params = (0.2 #random.choice([i/1000 for i in range(100, 501, 25)])
                    ,0.075 #random.choice([i/1000 for i in range(10, 101, 5)])
                    ,0.3 #random.choice([i/1000 for i in range(100, 501, 25)])
-                   ,0.028 #random.choice([i/100 for i in range(20, 31, 1)])
+                   ,0.28 #random.choice([i/100 for i in range(20, 31, 1)])
                    ,0.15 #random.choice([i/100 for i in range(10, 21, 1)])
                    ,0 #random.choice([i for i in range(0, 4, 1)])
                    ,'Yes' #random.choice(['Yes','No'])
