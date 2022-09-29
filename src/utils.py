@@ -29,23 +29,23 @@ def long_cos(day:int, cycle:int, offset:float, amplitude:float):
 
 # Reward rate framework
 def rr_framework(supply:int, with_dynamic_reward_rate:str, rr_controller:int, version="v1"):
-    if supply > 10000000000000:
-      r = 0.0000625
-    elif supply > 1000000000000:
-      r = 0.000125
-    elif supply > 100000000000:
-      r = 0.00025
-    elif supply > 10000000000:
-      r = 0.0005
-    elif supply > 1000000000:
-      r = 0.001
-    elif supply > 1000000000:
-      r = 0.001
-    elif supply > 100000000:
-      r = 0.002
+    if supply < 1_000_000:
+        r = 0.3058 * 3 / 100
+    elif supply < 10_000_000:
+        r = 0.1587 * 3 / 100
+    elif supply < 100_000_000:
+        r = 0.1183 * 3 / 100
+    elif supply < 1_000_000_000:
+        r = 0.0458 * 3 / 100
+    elif supply < 10_000_000_000:
+        r = 0.0148 * 3 / 100
+    elif supply < 100_000_000_000:
+        r = 0.0039 * 3 / 100
+    elif supply < 1_000_000_000_000:
+        r = 0.0019 * 3 / 100
     else:
-      r = 0.004
-    
+        r = 0.0009 * 3 / 100
+
 
     if with_dynamic_reward_rate == 'No':
         return r
@@ -136,16 +136,12 @@ class Day():
 
             self.ma_target = params.initial_target
             self.lower_target_wall = self.ma_target * (1 - params.lower_wall)
-            self.lower_spread_wall = self.ma_target - self.lower_target_wall
             self.upper_target_wall = self.ma_target * (1 + params.upper_wall)
-            self.upper_spread_wall = self.upper_target_wall - self.ma_target
             self.lower_target_cushion = self.ma_target * (1 - params.lower_cushion)
-            self.lower_spread_cushion = self.ma_target - self.lower_target_cushion
             self.upper_target_cushion = self.ma_target * (1 + params.upper_cushion)
-            self.upper_spread_cushion = self.upper_target_cushion - self.ma_target
 
             self.bid_capacity_target = params.bid_factor * self.reserves
-            self.ask_capacity_target = params.ask_factor * self.reserves / self.upper_target_wall * (1 + self.lower_spread_wall + self.upper_spread_wall)
+            self.ask_capacity_target = params.ask_factor * self.reserves / self.upper_target_wall * (1 + params.lower_wall + params.upper_wall)
             self.bid_capacity_target_cushion = self.bid_capacity_target * params.cushion_factor
             self.ask_capacity_target_cushion = self.ask_capacity_target * params.cushion_factor
             self.bid_capacity = self.bid_capacity_target
@@ -202,21 +198,17 @@ class Day():
                 self.reward_rate = rr_framework(prev_day.supply, params.with_dynamic_reward_rate, 0)
 
 
-            self.supply = max(prev_day.supply * (1 + self.reward_rate) + prev_day.ask_change_ohm - prev_day.bid_change_ohm, 0)
+            self.floating_supply = max(prev_day.floating_supply * (1 + self.reward_rate) + prev_day.ask_change_ohm - prev_day.bid_change_ohm, 0)
             self.ma_target = calc_price_target(params=params, prev_day=prev_day, prev_lags=prev_lags)
             self.prev_price = prev_day.price
 
             # Walls
             self.lower_target_wall = self.ma_target * (1 - params.lower_wall)
-            self.lower_spread_wall = self.ma_target - self.lower_target_wall
             self.upper_target_wall = self.ma_target * (1 + params.upper_wall)
-            self.upper_spread_wall = self.upper_target_wall - self.ma_target
 
             # Cushions
             self.lower_target_cushion = self.ma_target * (1 - params.lower_cushion)
-            self.lower_spread_cushion = self.ma_target - self.lower_target_cushion
             self.upper_target_cushion = self.ma_target * (1 + params.upper_cushion)
-            self.upper_spread_cushion = self.upper_target_cushion - self.ma_target
 
             # Inside the range counters
             if prev_day.price > prev_day.lower_target_cushion:
@@ -231,7 +223,7 @@ class Day():
 
             # Target capacities
             self.bid_capacity_target = params.bid_factor * prev_day.reserves
-            self.ask_capacity_target = prev_day.upper_target_wall and params.ask_factor * prev_day.reserves * (1 + prev_day.lower_spread_wall + prev_day.upper_spread_wall) / prev_day.upper_target_wall or 0
+            self.ask_capacity_target = prev_day.upper_target_wall and params.ask_factor * prev_day.reserves * (1 + params.lower_wall + params.upper_wall) / prev_day.upper_target_wall or 0
             self.bid_capacity_target_cushion = self.bid_capacity_target * params.cushion_factor
             self.ask_capacity_target_cushion = self.ask_capacity_target * params.cushion_factor
 
@@ -262,7 +254,7 @@ class Day():
             
             
             # Reserve Intake
-            if self.day % 7 == 0:  # Rebalance once a week
+            if self.day % 7 == 0 and self.day != 0:  # Rebalance once a week
                 if prev_day.reserves * (1 - params.max_liq_ratio) < prev_day.liq_usd * params.max_liq_ratio:
                     self.reserves_in = (prev_day.liq_usd * params.max_liq_ratio - prev_day.reserves * (1 - params.max_liq_ratio)) / (params.reserve_change_speed * params.short_cycle)
                 else:
@@ -409,11 +401,15 @@ class Day():
             else:
                 self.release_capture = 0
 
-        
+
+        if self.day == 1:
+            self.floating_supply = self.supply - self.liq_ohm
+        else:
+            self.supply = self.floating_supply + self.liq_ohm
+
         self.net_flow_and_bond = self.net_flow - self.reserves_in
         self.treasury = self.liq_usd + self.reserves
         self.mcap = self.supply * self.price
-        self.floating_supply = self.supply - self.liq_ohm
         self.floating_mcap = self.floating_supply * self.price
 
         self.liq_ratio = self.treasury and self.liq_usd / self.treasury or 0
@@ -471,12 +467,19 @@ def calc_price_target(params:ModelParams, prev_day:Day, prev_lags:Dict[int, Tupl
             for i in range(days - days_ma, days):
                 s += prev_lags['price'][1][i]
             return s / days_ma
-        elif days > 5:
+        #elif days > 5:
+        #    for i in range (1, days):
+        #        s += prev_lags['price'][1][i]
+        #    return s / days
+        #else:
+        #    return prev_day.ma_target
+        elif days == 0:
+            return prev_day.ma_target
+        else:
             for i in range (1, days):
                 s += prev_lags['price'][1][i]
-            return s / days
-        else:
-            return prev_day.ma_target
+            s += prev_lags['price'][1][1] * (params.target_ma - days)
+            return s / params.target_ma
 
 
 #price target functions
