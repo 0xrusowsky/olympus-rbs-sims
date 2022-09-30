@@ -61,7 +61,7 @@ def model_inputs (initial_variables, max_liq_ratio, ask_factor, cushion_factor, 
 
         ,max_liq_ratio = max_liq_ratio  # liquidityUSD : reservesUSD ratio --> 1:1 = 0.5
         ,min_premium_target = mint_sync_premium  # minimum premium to keep adding liquidity as supply grows (mint & sync).
-        ,max_outflow_rate = 0.05 # max % of reservesUSD that can be released on a single day
+        ,max_outflow_rate = 1 #0.05 # max % of reservesUSD that can be released on a single day
         ,reserve_change_speed = 1  # directly related to the speed at which reserves are released/captured by the treasury. The higher the slower.
         ,with_reinstate_window = with_reinstate_window # determines if there is a minimum counter to reinstate the capacity to perform operations or not
         ,with_dynamic_reward_rate = with_dynamic_reward_rate # determines if there is less supply expansion when price < wall
@@ -124,43 +124,42 @@ def get_trial_variables(from_df, initial_variables):
 
 
 # Load data from BigQuery
-t = 0
-
-#------------
-#seeds 0-1000
-query = f"""select * from `{read_table_id}` where seed > @seed"""
-job_config = bigquery.QueryJobConfig(
-    query_parameters=[
-        bigquery.ScalarQueryParameter("seed", "INT64", t),
-        ]
+for t in [169, 18, 92, 391, 13]:
+    #------------
+    #seeds 0-1000
+    query = f"""select * from `{read_table_id}` where seed = @seed"""
+    job_config = bigquery.QueryJobConfig(
+        query_parameters=[
+            bigquery.ScalarQueryParameter("seed", "INT64", t),
+            ]
+        )
+    parameters_df = (
+        client.query(query, job_config).result().to_dataframe(create_bqstorage_client=True)
     )
-parameters_df = (
-    client.query(query, job_config).result().to_dataframe(create_bqstorage_client=True)
-)
 
-print(f"Current config: {t}")
-print(f"config {t} status | START Printing data pulled from BigQuery")
-print(parameters_df)
-print(f"config {t} status | END Printing data pulled from BigQuery")
+    print(f"Current config: {t}")
+    print(f"config {t} status | START Printing data pulled from BigQuery")
+    print(parameters_df)
+    print(f"config {t} status | END Printing data pulled from BigQuery")
 
-# Get all the historical data from the simulated scenario
-print(f"config {t} status | START Re-simulating data for all trials")
-historical_df = get_trial_variables(parameters_df, initial_variables)
-print(f"config {t} status | END Re-simulating data for all trials")
-print(historical_df)
+    # Get all the historical data from the simulated scenario
+    print(f"config {t} status | START Re-simulating data for all trials")
+    historical_df = get_trial_variables(parameters_df, initial_variables)
+    print(f"config {t} status | END Re-simulating data for all trials")
+    print(historical_df)
 
-# Load updated data
-print(f"config {t} status | START uploading data into BigQuery")
-job = client.load_table_from_dataframe(
-    historical_df, table_id, job_config=job_config_upload, location="US"
-)
-job.result()
-print(f"config {t} status | END uploading data into BigQuery")
-
-# Print out confirmed job details
-table = client.get_table(table_id)
-print(
-    "config status | Loaded {} rows and {} columns to {}".format(
-        table.num_rows, len(table.schema), table_id
+    # Load updated data
+    print(f"config {t} status | START uploading data into BigQuery")
+    job = client.load_table_from_dataframe(
+        historical_df, table_id, job_config=job_config_upload, location="US"
     )
-)
+    job.result()
+    print(f"config {t} status | END uploading data into BigQuery")
+
+    # Print out confirmed job details
+    table = client.get_table(table_id)
+    print(
+        "config status | Loaded {} rows and {} columns to {}".format(
+            table.num_rows, len(table.schema), table_id
+        )
+    )
