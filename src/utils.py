@@ -169,8 +169,10 @@ class Day():
                 self.net_flow = random.uniform(self.liq_usd * self.market_supply, self.liq_usd * self.market_demand)
             prev_arbs[self.day] = (self.arb_demand, self.arb_supply)
             
-            self.bid_counter = [0] * (params.reinstate_window - params.min_counter_reinstate) + [1] * params.min_counter_reinstate
-            self.ask_counter = [0] * (params.reinstate_window - params.min_counter_reinstate) + [1] * params.min_counter_reinstate
+            #self.bid_counter = [0] * (params.reinstate_window - params.min_counter_reinstate) + [1] * params.min_counter_reinstate
+            #self.ask_counter = [0] * (params.reinstate_window - params.min_counter_reinstate) + [1] * params.min_counter_reinstate
+            self.bid_counter = [0] * params.reinstate_window
+            self.ask_counter = [0] * params.reinstate_window
             
         else:
             self.day = prev_day.day + 1
@@ -202,21 +204,28 @@ class Day():
             self.ma_target = calc_price_target(params=params, prev_day=prev_day, prev_lags=prev_lags)
             self.prev_price = prev_day.price
 
+            # Walls
+            self.lower_target_wall = self.ma_target * (1 - params.lower_wall)
+            self.upper_target_wall = self.ma_target * (1 + params.upper_wall)
+
+            # Cushions
+            self.lower_target_cushion = self.ma_target * (1 - params.lower_cushion)
+            self.upper_target_cushion = self.ma_target * (1 + params.upper_cushion)
+
             # Inside the range counters
-            if prev_day.price > prev_day.lower_target_cushion:
+            if prev_day.price > prev_day.ma_target:
                 self.bid_counter = prev_day.bid_counter[1:] + [1]
             else:
                 self.bid_counter = prev_day.bid_counter[1:] + [0]
 
-            if prev_day.price < prev_day.upper_target_cushion:
+            if prev_day.price < prev_day.ma_target:
                 self.ask_counter = prev_day.ask_counter[1:] + [1]
             else:
                 self.ask_counter = prev_day.ask_counter[1:] + [0]
 
-
             # Target capacities
             self.bid_capacity_target = params.bid_factor * prev_day.reserves
-            self.ask_capacity_target = prev_day.upper_target_wall and params.ask_factor * prev_day.reserves * (1 + params.lower_wall + params.upper_wall) / prev_day.upper_target_wall or 0
+            self.ask_capacity_target = prev_day.upper_target_wall and params.ask_factor * prev_day.reserves * (1 + 2 * params.upper_wall) / prev_day.upper_target_wall or 0
             self.bid_capacity_target_cushion = self.bid_capacity_target * params.cushion_factor
             self.ask_capacity_target_cushion = self.ask_capacity_target * params.cushion_factor
 
@@ -245,29 +254,21 @@ class Day():
             else:
                 self.k = prev_day.k
             
-
-            # Reserve Intake
+            
+            # Treasury Rebalance - Reserve Intake
             if self.day % 7 == 0 and self.day != 0:  # Rebalance once a week
-                if prev_day.reserves * (1 - params.max_liq_ratio) < prev_day.liq_usd * params.max_liq_ratio:
-                    self.reserves_in = (prev_day.liq_usd * params.max_liq_ratio - prev_day.reserves * (1 - params.max_liq_ratio)) / (params.reserve_change_speed * params.short_cycle)
-                else:
-                    self.reserves_in = -2 * (prev_day.reserves * params.max_liq_ratio - prev_day.liq_usd * (1 - params.max_liq_ratio)) / (params.reserve_change_speed * params.short_cycle)
-                
+                self.reserves_in = prev_day.liq_usd - prev_day.treasury * params.max_liq_ratio
+
+                max_outflow = (-1) * prev_day.reserves * params.max_outflow_rate
+                if self.reserves_in < max_outflow:
+                    self.reserves_in = max_outflow
+
                 if self.reserves_in < (-1) * prev_day.reserves:  # Ensure that the reserve release is limited by the total reserves left
-                    self.reserves = (-1) * prev_day.reserves                
-                if self.reserves_in < (-1) * prev_day.reserves * params.max_outflow_rate:  # Ensure that the reserve release is limited by the max_outflow_rate
-                    self.reserves_in = (-1) * prev_day.reserves * params.max_outflow_rate
+                    self.reserves = (-1) * prev_day.reserves
+
             else:
                 self.reserves_in = 0
 
-
-            # Walls
-            self.lower_target_wall = self.ma_target * (1 - params.lower_wall)
-            self.upper_target_wall = self.ma_target * (1 + params.upper_wall)
-
-            # Cushions
-            self.lower_target_cushion = self.ma_target * (1 - params.lower_cushion)
-            self.upper_target_cushion = self.ma_target * (1 + params.upper_cushion)
 
             natural_price = ((self.net_flow - self.reserves_in + prev_day.liq_usd) ** 2) / self.k
 
@@ -467,7 +468,7 @@ def calc_price_target(params:ModelParams, prev_day:Day, prev_lags:Dict[int, Tupl
         days_ma = int(params.target_ma)
         if days > params.target_ma:
             for i in range(days - days_ma, days):
-                s += prev_lags['price'][1][i]
+                s += prev_lags['price'][1][i+1]
             return s / days_ma
         #elif days > 5:
         #    for i in range (1, days):
@@ -478,8 +479,8 @@ def calc_price_target(params:ModelParams, prev_day:Day, prev_lags:Dict[int, Tupl
         elif days == 0:
             return prev_day.ma_target
         else:
-            for i in range (1, days):
-                s += prev_lags['price'][1][i]
+            for i in range (0, days):
+                s += prev_lags['price'][1][i+1]
             s += prev_lags['price'][1][1] * (params.target_ma - days)
             return s / params.target_ma
 

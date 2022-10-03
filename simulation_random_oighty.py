@@ -60,7 +60,7 @@ def model_inputs (initial_variables, max_liq_ratio, ask_factor, cushion_factor, 
 
         ,max_liq_ratio = max_liq_ratio  # liquidityUSD : reservesUSD ratio --> 1:1 = 0.5
         ,min_premium_target = mint_sync_premium  # minimum premium to keep adding liquidity as supply grows (mint & sync).
-        ,max_outflow_rate = 1 #0.05 # max % of reservesUSD that can be released on a single day
+        ,max_outflow_rate = 0.033 # max % of reservesUSD that can be released on a single day
         ,reserve_change_speed = 1  # directly related to the speed at which reserves are released/captured by the treasury. The higher the slower.
         ,with_reinstate_window = with_reinstate_window # determines if there is a minimum counter to reinstate the capacity to perform operations or not
         ,with_dynamic_reward_rate = with_dynamic_reward_rate # determines if there is less supply expansion when price < wall
@@ -130,7 +130,9 @@ def model_distributions(seed, trial, initial_variables):
 
 # Simulate different parameter configurations with different seeds
 parameters_df = pd.DataFrame(columns = ['key', 'seed', 'value', 'maxLiqRatio', 'askFactor', 'cushionFactor', 'wall', 'cushion', 'mintSyncPremium', 'withReinstateWindow', 'withDynamicRR'])
-for i in [169, 18, 92, 391, 13]:
+
+# Load data from BigQuery: 169, 
+for i in  [169, 135, 213, 679, 2864, 4626, 47, 107, 124, 3295, 405, 340]:
     seed = i
     for j in [1]:
         seed, trial_params, r = model_distributions(i, j, initial_variables)
