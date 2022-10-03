@@ -130,7 +130,7 @@ def model_distributions(seed, trial, initial_variables):
 
 # Simulate different parameter configurations with different seeds
 parameters_df = pd.DataFrame(columns = ['key', 'seed', 'value', 'maxLiqRatio', 'askFactor', 'cushionFactor', 'wall', 'cushion', 'mintSyncPremium', 'withReinstateWindow', 'withDynamicRR'])
-for i in range (0, 5000):
+for i in range (0, 2000):
     seed = i
     for j in [44]:
         seed, trial_params, r = model_distributions(i, j, initial_variables)

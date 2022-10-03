@@ -163,10 +163,7 @@ class Day():
             self.unwind_demand = 0
             self.unwind_supply = 0
 
-            if params.netflow_type == 'historical' and historical_net_flows is not None:
-                self.net_flow = historical_net_flows
-            else:
-                self.net_flow = random.uniform(self.liq_usd * self.market_supply, self.liq_usd * self.market_demand)
+            self.net_flow = 0
             prev_arbs[self.day] = (self.arb_demand, self.arb_supply)
             
             #self.bid_counter = [0] * (params.reinstate_window - params.min_counter_reinstate) + [1] * params.min_counter_reinstate
@@ -231,7 +228,7 @@ class Day():
 
 
             # Market dynamics
-            if params.netflow_type == 'historical' and historical_net_flows is not None:
+            if params.netflow_type == 'historical' or params.netflow_type == 'enforced' and historical_net_flows is not None:
                 self.net_flow = historical_net_flows
             else:
                 #self.net_flow = random.uniform(prev_day.treasury * prev_day.total_supply, prev_day.treasury * prev_day.total_demand) + prev_day.release_capture
@@ -264,7 +261,7 @@ class Day():
                     self.reserves_in = max_outflow
 
                 if self.reserves_in < (-1) * prev_day.reserves:  # Ensure that the reserve release is limited by the total reserves left
-                    self.reserves = (-1) * prev_day.reserves
+                    self.reserves_in = (-1) * prev_day.reserves
 
             else:
                 self.reserves_in = 0
