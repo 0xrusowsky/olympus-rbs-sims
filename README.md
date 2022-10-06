@@ -15,12 +15,14 @@ This repo contains all the code behind the modeling tools used to simulate the s
   1. Analyze the parameters that are believed to be more influential and fix the rest of the parameters.
   2. Reach conclusions on the best performing values for the tested parameters.
   3. Perform another round of simulations, by fixing the parameters for which some good-performing values have been found, and analyze the rest of the parameters.
-  
-- To initially verify the model and to give users more flexibility, a fully customizable jupyter notebook to run single simulations has been created.
 
 - Since the policy team aims to come up with a robust parameter configuration, no agent-modeling behavior assumptions have been done. Instead, a Montecarlo (random market behavior) approach has been followed. Theoretically, this design choice ensures that a wider variety of market conditions (including edge cases and "not realistic" market behaviors) have been tested.
 
-- The simulated data has been stored in BigQuery tables and analyzed using Tableau. Since it is unfeasible to analyze all the seeds independently, they have been grouped into market scenarios (`a-really-bullish`, `b-bullish`, `c-neutral-bullish`, `d-neutral-bearish`, `e-bearish`, `e-really-bearish`)
+- The simulated data has been stored in BigQuery tables and analyzed using Tableau.
+  
+- To initially verify the model implementation and to give users more flexibility, a fully customizable jupyter notebook to run single simulations has been created.
+
+- To verify the accuracy of the model implementation vs the testnet implementation of smart contracts, a second jupyter notebook has been created.
 
 # scripts
 - `liquidity-olympus/src/utils.py`: Contains all the equations that govern the RBS model. Also contains relevant functions such as the reward rate framework.
