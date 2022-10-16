@@ -16,7 +16,7 @@ def initial_params(netflow_type:str, netflow_data:str=None, initial_date:str=Non
             return netflow_type, historical_net_flows, price, target, supply, reserves, liq_usd
 
     elif netflow_type == 'enforced':
-            f = open(f'./data/sim-vs-testnet/sim-results-{netflow_data}-1.json')
+            f = open(f'./data/sim-vs-testnet/sim-results-{netflow_data}.json')
             data = json.load(f)
             df = pd.json_normalize(data)
             f.close()

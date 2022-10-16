@@ -126,11 +126,25 @@ class Day():
             # Floating Supply Rebase
             self.floating_supply = max(prev_day.floating_supply * (1 + self.reward_rate) + prev_day.ask_change_ohm - prev_day.bid_change_ohm, 0)
 
+
+            # -- LIQUIDITY POOL ---------------------------------------------------------------------------------
+
+            # Treasury Rebalance - Reserve Intake
+            if self.day % 7 == 0:  # Rebalance once a week
+                self.reserves_in = prev_day.liq_usd - prev_day.treasury * params.max_liq_ratio
+                max_outflow = (-1) * prev_day.reserves * params.max_outflow_rate  # Ensure that the reserve release is limited by max_outflow_rate
+                if self.reserves_in < max_outflow:
+                    self.reserves_in = max_outflow
+                if self.reserves_in < (-1) * prev_day.reserves:  # Ensure that the reserve release is limited by the total reserves left
+                    self.reserves_in = (-1) * prev_day.reserves
+            else:
+                self.reserves_in = 0
+
             # AMM k
             if prev_day.fmcap_treasury_ratio > params.min_premium_target:
-                self.k = prev_day.k * (1 + self.reward_rate)**2  # Mint & Sync
+                self.k = prev_day.price and ((prev_day.liq_usd - self.reserves_in)**2 / prev_day.price) * (1 + self.reward_rate)**2 or 0
             else:
-                self.k = prev_day.k
+                self.k = prev_day.price and ((prev_day.liq_usd - self.reserves_in)**2 / prev_day.price) or 0
 
 
             # -- RBS PRICE ---------------------------------------------------------------------------------------
@@ -185,19 +199,8 @@ class Day():
             self.ask_capacity_target = prev_day.upper_target_wall and params.ask_factor * prev_day.reserves * (1 + 2 * params.upper_wall) / prev_day.upper_target_wall or 0
             self.bid_capacity_target_cushion = self.bid_capacity_target * params.cushion_factor
             self.ask_capacity_target_cushion = self.ask_capacity_target * params.cushion_factor
+
             
-            # Treasury Rebalance - Reserve Intake
-            if self.day % 7 == 0 and self.day != 0:  # Rebalance once a week
-                self.reserves_in = prev_day.liq_usd - prev_day.treasury * params.max_liq_ratio
-                max_outflow = (-1) * prev_day.reserves * params.max_outflow_rate  # Ensure that the reserve release is limited by max_outflow_rate
-                if self.reserves_in < max_outflow:
-                    self.reserves_in = max_outflow
-                if self.reserves_in < (-1) * prev_day.reserves:  # Ensure that the reserve release is limited by the total reserves left
-                    self.reserves_in = (-1) * prev_day.reserves
-            else:
-                self.reserves_in = 0
-
-
             natural_price = ((self.net_flow - self.reserves_in + prev_day.liq_usd) ** 2) / self.k  # Price without any treasury market operations
 
             # BID: Real Bid Capacity - Cushion
@@ -315,8 +318,9 @@ class Day():
             self.liq_ohm = self.liq_usd and self.k / self.liq_usd or 0  # ensure that if liq_usd is 0 then liq_ohm is 0 as well
             self.price = self.liq_ohm and self.liq_usd / self.liq_ohm or 0  # ensure that if liq_ohm is 0 then price is 0 as well
 
+
             # Reserves
-            self.reserves_out = self.liq_usd - prev_day.liq_usd - self.net_flow
+            self.reserves_out = self.liq_usd - prev_day.liq_usd - self.net_flow - self.reserves_in
             self.reserves = max(prev_day.reserves - self.reserves_out, 0)
             self.prev_reserves = prev_day.reserves
 
@@ -333,7 +337,6 @@ class Day():
         else:
             self.supply = self.floating_supply + self.liq_ohm
 
-        self.net_flow_and_bond = self.net_flow - self.reserves_in
         self.treasury = self.liq_usd + self.reserves
         self.mcap = self.supply * self.price
         self.floating_mcap = self.floating_supply * self.price
