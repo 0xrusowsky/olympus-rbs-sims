@@ -201,7 +201,7 @@ class Day():
             self.ask_capacity_target_cushion = self.ask_capacity_target * params.cushion_factor
 
             
-            natural_price = ((self.net_flow - self.reserves_in + prev_day.liq_usd) ** 2) / self.k  # Price without any treasury market operations
+            natural_price = self.k and ((self.net_flow - self.reserves_in + prev_day.liq_usd) ** 2) / self.k or 0  # Price without any treasury market operations
 
             # BID: Real Bid Capacity - Cushion
             if (sum(self.bid_counter) >= params.min_counter_reinstate or params.with_reinstate_window == 'No') and natural_price > self.lower_target_cushion:  # Refill capacity
