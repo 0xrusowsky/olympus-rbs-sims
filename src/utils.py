@@ -136,7 +136,7 @@ class Day():
                     max_outflow = (-1) * prev_day.reserves * params.max_outflow_rate / 2  # Smaller max_outflow_rate during the first 60 days
                 else:
                     max_outflow = (-1) * prev_day.reserves * params.max_outflow_rate  # Ensure that the reserve release is limited by max_outflow_rate
-                    
+
                 if self.reserves_in < max_outflow:
                     self.reserves_in = max_outflow
                 if self.reserves_in < (-1) * prev_day.reserves:  # Ensure that the reserve release is limited by the total reserves left
