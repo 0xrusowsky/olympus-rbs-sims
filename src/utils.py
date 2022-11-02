@@ -132,7 +132,11 @@ class Day():
             # Treasury Rebalance - Reserve Intake
             if self.day % 7 == 0:  # Rebalance once a week
                 self.reserves_in = prev_day.liq_usd - prev_day.treasury * params.max_liq_ratio
-                max_outflow = (-1) * prev_day.reserves * params.max_outflow_rate  # Ensure that the reserve release is limited by max_outflow_rate
+                if self.day < 60:
+                    max_outflow = (-1) * prev_day.reserves * params.max_outflow_rate / 2  # Smaller max_outflow_rate during the first 60 days
+                else:
+                    max_outflow = (-1) * prev_day.reserves * params.max_outflow_rate  # Ensure that the reserve release is limited by max_outflow_rate
+                    
                 if self.reserves_in < max_outflow:
                     self.reserves_in = max_outflow
                 if self.reserves_in < (-1) * prev_day.reserves:  # Ensure that the reserve release is limited by the total reserves left
@@ -181,8 +185,8 @@ class Day():
                 self.market_supply = 0
 
             else:  # Random market behavior  -->  assuming 10% of sell pressure of the newly emited tokens after each rebase
-                self.net_flow = random.uniform(prev_day.treasury * prev_day.total_supply, prev_day.treasury * prev_day.total_demand) - (prev_day.supply * prev_day.reward_rate * prev_day.price / 10)
-                #self.net_flow = random.uniform(prev_day.treasury * prev_day.total_supply, prev_day.treasury * prev_day.total_demand)
+                #self.net_flow = random.uniform(prev_day.treasury * prev_day.total_supply, prev_day.treasury * prev_day.total_demand) - (prev_day.supply * prev_day.reward_rate * prev_day.price / 10)
+                self.net_flow = random.uniform(prev_day.treasury * prev_day.total_supply, prev_day.treasury * prev_day.total_demand)
 
                 if params.netflow_type == 'waves':
                     self.market_demand = params.demand_factor * short_sin(self.day, params.short_cycle) * long_sin(self.day, params.long_cycle, params.long_sin_offset)
@@ -201,7 +205,7 @@ class Day():
             self.ask_capacity_target_cushion = self.ask_capacity_target * params.cushion_factor
 
             
-            natural_price = ((self.net_flow - self.reserves_in + prev_day.liq_usd) ** 2) / self.k  # Price without any treasury market operations
+            natural_price = self.k and ((self.net_flow - self.reserves_in + prev_day.liq_usd) ** 2) / self.k or 0 # Price without any treasury market operations
 
             # BID: Real Bid Capacity - Cushion
             if (sum(self.bid_counter) >= params.min_counter_reinstate or params.with_reinstate_window == 'No') and natural_price > self.lower_target_cushion:  # Refill capacity
@@ -361,7 +365,7 @@ class Day():
 
 
 # Reward rate framework
-def rr_framework(supply:int, with_dynamic_reward_rate:str, rr_controller:int, version="v1"):
+def rr_framework(supply:int, with_dynamic_reward_rate:str, rr_controller:int, version="flat"):
     if supply < 1_000_000:
         r = 0.3058 * 3 / 100
     elif supply < 10_000_000:
@@ -379,27 +383,30 @@ def rr_framework(supply:int, with_dynamic_reward_rate:str, rr_controller:int, ve
     else:
         r = 0.0009 * 3 / 100
 
+    if version == "flat":
+        return 0.000198 # (1 + r) ^ 365 = 7.5%
 
-    if with_dynamic_reward_rate == 'No':
-        return r
     else:
-        if version == "v0":  # controller v0
-            if rr_controller != 9:
-                return r/2
+        if with_dynamic_reward_rate == 'No':
+            return r
+        else:
+            if version == "v0":  # controller v0
+                if rr_controller != 9:
+                    return r/2
 
-        elif version == "v1":  # controller v1
-            if rr_controller == -3:  # below backing
-                return 0
-            elif rr_controller == -2:  # below wall
-                return r * (0.5)
-            elif rr_controller == -1:  # below cushion
-                return r * (0.75)
-            elif rr_controller == 2:  # above premium of 3
-                return r * (1.25)
-            elif rr_controller == 1:  # above wall
-                return r * (1.125)
-            elif rr_controller == 0:  # inside range, as usual
-                return r
+            elif version == "v1":  # controller v1
+                if rr_controller == -3:  # below backing
+                    return 0
+                elif rr_controller == -2:  # below wall
+                    return r * (0.5)
+                elif rr_controller == -1:  # below cushion
+                    return r * (0.75)
+                elif rr_controller == 2:  # above premium of 3
+                    return r * (1.25)
+                elif rr_controller == 1:  # above wall
+                    return r * (1.125)
+                elif rr_controller == 0:  # inside range, as usual
+                    return r
 
 
 # Target price controller
