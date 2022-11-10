@@ -103,13 +103,14 @@ class Day():
             
             self.bid_counter = [0] * params.reinstate_window
             self.ask_counter = [0] * params.reinstate_window
+            self.target_liq_ratio_reached = False
 
         else:
             self.day = prev_day.day + 1
 
             # -- SUPPLY ---------------------------------------------------------------------------------------
 
-            # Reward Rate
+            # Reward Rate --> after OIP 119 regardless of the scenario, reward rate is fixed.
             if prev_day.fmcap_treasury_ratio < 1:  # below backing           
                 self.reward_rate = rr_framework(prev_day.supply, params.with_dynamic_reward_rate, -3)
             elif prev_day.price < prev_day.lower_target_wall:  # below wall
@@ -132,8 +133,8 @@ class Day():
             # Treasury Rebalance - Reserve Intake
             if self.day % 7 == 0:  # Rebalance once a week
                 self.reserves_in = prev_day.liq_usd - prev_day.treasury * params.max_liq_ratio
-                if self.day < 60:
-                    max_outflow = (-1) * prev_day.reserves * params.max_outflow_rate / 2  # Smaller max_outflow_rate during the first 60 days
+                if prev_day.target_liq_ratio_reached is False:
+                    max_outflow = (-1) * prev_day.reserves * params.max_outflow_rate * 2 / 3  # Smaller max_outflow_rate until target is first reached
                 else:
                     max_outflow = (-1) * prev_day.reserves * params.max_outflow_rate  # Ensure that the reserve release is limited by max_outflow_rate
 
@@ -186,7 +187,7 @@ class Day():
 
             else:  # Random market behavior  -->  assuming 10% of sell pressure of the newly emited tokens after each rebase
                 #self.net_flow = random.uniform(prev_day.treasury * prev_day.total_supply, prev_day.treasury * prev_day.total_demand) - (prev_day.supply * prev_day.reward_rate * prev_day.price / 10)
-                self.net_flow = random.uniform(prev_day.treasury * prev_day.total_supply, prev_day.treasury * prev_day.total_demand)
+                self.net_flow = random.uniform(prev_day.liq_usd * prev_day.total_supply, prev_day.liq_usd * prev_day.total_demand)
 
                 if params.netflow_type == 'waves':
                     self.market_demand = params.demand_factor * short_sin(self.day, params.short_cycle) * long_sin(self.day, params.long_cycle, params.long_sin_offset)
@@ -274,7 +275,7 @@ class Day():
             elif self.ask_capacity_cushion > self.ask_capacity_target_cushion:
                 self.ask_capacity_cushion = self.ask_capacity_target_cushion
 
-             # ASK: Effective Ask Capacity Changes - Cushion
+            # ASK: Effective Ask Capacity Changes - Cushion
             if natural_price > self.upper_target_cushion and natural_price <= self.upper_target_wall:
                 self.ask_change_cushion_ohm = prev_day.ask_capacity_cushion - self.ask_capacity_cushion
                 self.ask_change_cushion_usd = self.upper_target_cushion * (prev_day.ask_capacity_cushion - self.ask_capacity_cushion)
@@ -346,6 +347,7 @@ class Day():
         self.floating_mcap = self.floating_supply * self.price
 
         self.liq_ratio = self.treasury and self.liq_usd / self.treasury or 0
+        self.target_liq_ratio_reached = True if self.liq_ratio >= params.max_liq_ratio else False
         self.reserves_ratio = self.liq_usd and self.reserves / self.liq_usd or 0
         self.fmcap_treasury_ratio = self.treasury and self.floating_mcap / self.treasury or 0
         self.liq_fmcap_ratio = self.floating_mcap and self.liq_usd / self.floating_mcap or 0
