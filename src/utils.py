@@ -187,7 +187,7 @@ class Day():
 
             else:  # Random market behavior  -->  assuming 10% of sell pressure of the newly emited tokens after each rebase
                 #self.net_flow = random.uniform(prev_day.treasury * prev_day.total_supply, prev_day.treasury * prev_day.total_demand) - (prev_day.supply * prev_day.reward_rate * prev_day.price / 10)
-                self.net_flow = random.uniform(prev_day.liq_usd * prev_day.total_supply, prev_day.liq_usd * prev_day.total_demand)
+                self.net_flow = random.uniform(prev_day.treasury * prev_day.total_supply, prev_day.treasury * prev_day.total_demand)
 
                 if params.netflow_type == 'waves':
                     self.market_demand = params.demand_factor * short_sin(self.day, params.short_cycle) * long_sin(self.day, params.long_cycle, params.long_sin_offset)
