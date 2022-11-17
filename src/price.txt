@@ -1,5 +1,5 @@
-big_query_data_table_id: liquidity-simulation.liquidity_simulations.2022_11_10-random-data
-big_query_daily_table_id: liquidity-simulation.liquidity_simulations.2022_11_13-random-daily_data
+big_query_data_table_id: liquidity-simulation.liquidity_simulations.2022_11_15-random-data
+big_query_daily_table_id: liquidity-simulation.liquidity_simulations.2022_11_15-random-daily_data
 initial_supply: 30000000
 initial_reserves: 200000000
 initial_liq_usd: 21000000

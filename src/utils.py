@@ -125,7 +125,7 @@ class Day():
                 self.reward_rate = rr_framework(prev_day.supply, params.with_dynamic_reward_rate, 0)
 
             # Floating Supply Rebase
-            self.floating_supply = max(prev_day.floating_supply * (1 + self.reward_rate) + prev_day.ask_change_ohm - prev_day.bid_change_ohm, 0)
+            self.supply = prev_day.price and max((prev_day.supply - prev_day.reserves_in / prev_day.prev_price + prev_day.ask_change_ohm - prev_day.bid_change_ohm) * (1 + self.reward_rate), 0) or 0
 
 
             # -- LIQUIDITY POOL ---------------------------------------------------------------------------------
@@ -185,8 +185,7 @@ class Day():
                 self.market_demand = 0
                 self.market_supply = 0
 
-            else:  # Random market behavior  -->  assuming 10% of sell pressure of the newly emited tokens after each rebase
-                #self.net_flow = random.uniform(prev_day.treasury * prev_day.total_supply, prev_day.treasury * prev_day.total_demand) - (prev_day.supply * prev_day.reward_rate * prev_day.price / 10)
+            else:  # Random market behavior
                 self.net_flow = random.uniform(prev_day.treasury * prev_day.total_supply, prev_day.treasury * prev_day.total_demand)
 
                 if params.netflow_type == 'waves':
@@ -331,17 +330,13 @@ class Day():
 
             self.ohm_traded = (self.price + prev_day.price) and (-2) * self.reserves_out / (self.price + prev_day.price) or 0
             self.cum_ohm_purchased = prev_day.cum_ohm_purchased - self.ohm_traded
-            self.cum_ohm_burnt = prev_day.cum_ohm_burnt + prev_day.bid_change_ohm
-            self.cum_ohm_minted = prev_day.cum_ohm_minted + prev_day.ask_change_ohm
+            self.cum_ohm_burnt = prev_day.cum_ohm_burnt + self.bid_change_ohm
+            self.cum_ohm_minted = prev_day.cum_ohm_minted + self.ask_change_ohm
 
         
         # -- PROTOCOL VARIABLES (FOR REPORTING) ---------------------------------------------------------------------------------------
 
-        if self.day == 1:
-            self.floating_supply = self.supply - self.liq_ohm
-        else:
-            self.supply = self.floating_supply + self.liq_ohm
-
+        self.floating_supply = max(self.supply - self.liq_ohm, 0)
         self.treasury = self.liq_usd + self.reserves
         self.mcap = self.supply * self.price
         self.floating_mcap = self.floating_supply * self.price
