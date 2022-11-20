@@ -34,7 +34,7 @@ job_config_upload = bigquery.LoadJobConfig(
 def model_inputs (initial_variables, max_liq_ratio, ask_factor, cushion_factor, lower_wall, lower_cushion, mint_sync_premium, with_reinstate_window, with_dynamic_reward_rate, seed):
     netflow_type, historical_net_flows, price, target, supply, reserves, liq_usd = initial_params(
         netflow_type = 'random' # determines the netflow types. Either 'historical', 'random', or 'cycles' (sin/cos waves)
-        #,initial_date = '2021/12/18' # Determines the initial date to account for 'historical' netflows and initial params. (example: '2021/12/18')
+        ,initial_date = '2021/12/18' # determines the initial date to account for 'historical' netflows and initial params. (example: '2021/12/18')
         ,initial_supply = initial_variables[0]
         ,initial_reserves = initial_variables[1]
         ,initial_liq_usd = initial_variables[2]
@@ -61,7 +61,7 @@ def model_inputs (initial_variables, max_liq_ratio, ask_factor, cushion_factor, 
 
         ,max_liq_ratio = max_liq_ratio  # liquidityUSD : reservesUSD ratio --> 1:1 = 0.5
         ,min_premium_target = mint_sync_premium  # minimum premium to keep adding liquidity as supply grows (mint & sync).
-        ,max_outflow_rate = 0.033 # max % of reservesUSD that can be released on a single week
+        ,max_outflow_rate = 0.05 # max % of reservesUSD that can be released on a single day
         ,reserve_change_speed = 1  # directly related to the speed at which reserves are released/captured by the treasury. The higher the slower.
         ,with_reinstate_window = with_reinstate_window # determines if there is a minimum counter to reinstate the capacity to perform operations or not
         ,with_dynamic_reward_rate = with_dynamic_reward_rate # determines if there is less supply expansion when price < wall
@@ -120,9 +120,10 @@ def get_trial_variables(from_df, initial_variables):
 
     return result_df
 
-
+import time
 # Load data from BigQuery
-for s in range (0, 60):
+for s in range (150, 200):
+    time.sleep(3)
     query = query = f"""select * from `{read_table_id}` where seed = @seed order by key asc LIMIT 1000"""
     job_config = bigquery.QueryJobConfig(
         query_parameters=[

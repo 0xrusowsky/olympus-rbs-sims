@@ -7,7 +7,7 @@ from google.cloud import bigquery
 from src.utils import ModelParams, Day, short_sin, short_cos, long_sin, long_cos
 from src.init_functions import initial_params
 
-print("Starting seeds XX")
+print("Starting seeds 0-100")
 
 # Initialize BigQuery Client
 client = bigquery.Client()
@@ -31,8 +31,8 @@ job_config = bigquery.LoadJobConfig(
 # Simulate scenario with market operations
 def model_inputs (initial_variables, max_liq_ratio, ask_factor, cushion_factor, lower_wall, lower_cushion, mint_sync_premium, with_reinstate_window, with_dynamic_reward_rate, seed):
     netflow_type, historical_net_flows, price, target, supply, reserves, liq_usd = initial_params(
-        netflow_type = 'random' # determines the netflow types. Either 'historical', 'enforced', 'random', or 'cycles' (sin/cos waves)
-        #,initial_date = '2021/12/18' # Determines the initial date to account for 'historical' netflows and initial params. (example: '2021/12/18')
+        netflow_type = 'random' # determines the netflow types. Either 'historical', 'random', or 'cycles' (sin/cos waves)
+        ,initial_date = '2021/12/18' # determines the initial date to account for 'historical' netflows and initial params. (example: '2021/12/18')
         ,initial_supply = initial_variables[0]
         ,initial_reserves = initial_variables[1]
         ,initial_liq_usd = initial_variables[2]
@@ -52,14 +52,14 @@ def model_inputs (initial_variables, max_liq_ratio, ask_factor, cushion_factor, 
         # Initial Parameters
         ,initial_supply = supply, initial_reserves = reserves, initial_liq_usd = liq_usd, initial_price = price, initial_target = target, target_price_function = 'price_moving_avg', netflow_type = netflow_type
 
-        ,demand_factor = 0.007  # % of OHM supply expected to drive market demand.
-        ,supply_factor = -0.007  # % of OHM supply expected to drive market sell preasure.
+        ,demand_factor = 0.01  # % of OHM supply expected to drive market demand.
+        ,supply_factor = -0.009  # % of OHM supply expected to drive market sell preasure.
         ,arb_factor = 0  # initial arb factor
         ,release_capture = 0  # % of reweight taken immediately by the market. --> I think it doesn't make sense anymore, that's why I set it to 0.
 
         ,max_liq_ratio = max_liq_ratio  # liquidityUSD : reservesUSD ratio --> 1:1 = 0.5
         ,min_premium_target = mint_sync_premium  # minimum premium to keep adding liquidity as supply grows (mint & sync).
-        ,max_outflow_rate = 0.033 # max % of reservesUSD that can be released on a single week
+        ,max_outflow_rate = 0.05 # max % of reservesUSD that can be released on a single day
         ,reserve_change_speed = 1  # directly related to the speed at which reserves are released/captured by the treasury. The higher the slower.
         ,with_reinstate_window = with_reinstate_window # determines if there is a minimum counter to reinstate the capacity to perform operations or not
         ,with_dynamic_reward_rate = with_dynamic_reward_rate # determines if there is less supply expansion when price < wall
@@ -100,15 +100,7 @@ def model_distributions(seed, trial, initial_variables):
     r = 0
     random.seed(seed*trial + trial)
 
-    trial_params = (random.choice([i/1000 for i in range(100, 501, 25)])
-                   ,random.choice([i/1000 for i in range(10, 101, 5)])
-                   ,random.choice([i/1000 for i in range(100, 501, 25)])
-                   ,random.choice([i/100 for i in range(20, 31, 1)])
-                   ,random.choice([i/100 for i in range(10, 21, 1)])
-                   ,random.choice([i for i in range(0, 4, 1)])
-                   ,random.choice(['Yes','No'])
-                   ,random.choice(['Yes','No'])
-                   )
+    trial_params = (0.14375, 0.095, 0.3075, 0.295, 0.1675, 0, 'Yes', 'No')
 
     simulation = model_inputs(seed = seed
                               ,max_liq_ratio = trial_params[0]
@@ -127,26 +119,25 @@ def model_distributions(seed, trial, initial_variables):
     return (seed, trial_params, r)
 
 
+parameters_df = pd.DataFrame(columns = ['key', 'seed', 'value', 'maxLiqRatio', 'askFactor', 'cushionFactor', 'wall', 'cushion', 'mintSyncPremium', 'withReinstateWindow', 'withDynamicRR'])
 # Simulate different parameter configurations with different seeds
-for i in range (0, 60):
+for i in range (50, 100):
     seed = i
-    parameters_df = pd.DataFrame(columns = ['key', 'seed', 'value', 'maxLiqRatio', 'askFactor', 'cushionFactor', 'wall', 'cushion', 'mintSyncPremium', 'withReinstateWindow', 'withDynamicRR'])
-    for j in range (0, 1000):
-        seed, trial_params, r = model_distributions(i, j, initial_variables)
-        parameters_df.loc[j] = [str(f'{seed}_{j}'), seed, r, trial_params[0], trial_params[1], trial_params[2], trial_params[3], trial_params[4], trial_params[5], trial_params[6], trial_params[7]]
+    seed, trial_params, r = model_distributions(i, 1, initial_variables)
+    parameters_df.loc[i] = [str(f'{seed}_{1}'), seed, r, trial_params[0], trial_params[1], trial_params[2], trial_params[3], trial_params[4], trial_params[5], trial_params[6], trial_params[7]]
 
-    # Load updated data
-    print(f"seed {seed} status | START uploading data into BigQuery")
-    job = client.load_table_from_dataframe(
-        parameters_df, table_id, job_config=job_config, location="US"
-    )
-    job.result()
-    print(f"seed {seed} status | END uploading data into BigQuery")
+# Load updated data
+print(f"seed {seed} status | START uploading data into BigQuery")
+job = client.load_table_from_dataframe(
+    parameters_df, table_id, job_config=job_config, location="US"
+)
+job.result()
+print(f"seed {seed} status | END uploading data into BigQuery")
 
-    # Print out confirmed job details
-    table = client.get_table(table_id)
-    print(
-        "seed status | Loaded {} rows and {} columns to {}".format(
-            table.num_rows, len(table.schema), table_id
-        )
+# Print out confirmed job details
+table = client.get_table(table_id)
+print(
+    "seed status | Loaded {} rows and {} columns to {}".format(
+        table.num_rows, len(table.schema), table_id
     )
+)
