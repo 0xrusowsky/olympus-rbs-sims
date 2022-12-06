@@ -5,7 +5,7 @@ from typing import Dict, List, Tuple
 
 
 class ModelParams():
-    def __init__(self, seed:int, netflow_type:str, horizon:int, ask_factor:float, bid_factor:float, cushion_factor:float, target_ma:float, lower_wall:float, upper_wall:float, lower_cushion:float, upper_cushion:float, reinstate_window:int, min_counter_reinstate:int, min_premium_target:int, max_outflow_rate:float, supply_amplitude:int, reserve_change_speed:float, max_liq_ratio:float, cycle_reweights:float, release_capture:float, demand_factor:float, supply_factor:float, initial_supply:float, initial_reserves:float, initial_liq_usd:float, arb_factor:float, initial_price:float, initial_target:float, target_price_function:str, short_cycle:int, long_cycle:int, long_sin_offset:float, long_cos_offset:float, with_reinstate_window:str, with_dynamic_reward_rate:str):
+    def __init__(self, seed:int, netflow_type:str, horizon:int, ask_factor:float, bid_factor:float, cushion_factor:float, target_ma:float, lower_wall:float, upper_wall:float, lower_cushion:float, upper_cushion:float, reinstate_window:int, min_counter_reinstate:int, min_premium_target:int, max_outflow_rate:float, supply_amplitude:int, reserve_change_speed:float, max_liq_ratio:float, cycle_reweights:float, release_capture:float, demand_factor:float, supply_factor:float, initial_supply:float, initial_reserves_usd:float, initial_reserves_volatile:float, initial_liq_usd:float, arb_factor:float, initial_price:float, initial_target:float, target_price_function:str, short_cycle:int, long_cycle:int, long_sin_offset:float, long_cos_offset:float, with_reinstate_window:str, with_dynamic_reward_rate:str):
         self.seed = seed
         self.horizon = horizon
         self.cycle_reweights = cycle_reweights
@@ -37,8 +37,10 @@ class ModelParams():
         self.min_counter_reinstate = min_counter_reinstate
 
         self.initial_supply = initial_supply
-        self.initial_reserves = initial_reserves
         self.initial_liq_usd = initial_liq_usd
+        self.initial_reserves_usd = initial_reserves_usd
+        self.initial_reserves_volatile = initial_reserves_volatile
+        self.initial_liq_backing = initial_reserves_usd + initial_reserves_volatile + initial_liq_usd
         self.initial_price = initial_price
         self.initial_target = initial_target
         self.target_price_function = target_price_function
@@ -66,10 +68,11 @@ class Day():
             self.cum_ohm_purchased = 0
             self.cum_ohm_burnt = 0
             self.cum_ohm_minted = 0
-            self.reserves = params.initial_reserves
-            self.prev_reserves = params.initial_reserves
+            self.reserves = params.initial_reserves_usd
+            self.prev_reserves = params.initial_reserves_usd
 
             self.ma_target = params.initial_target
+            self.lb_target = params.initial_liq_backing / params.initial_supply
             self.lower_target_wall = self.ma_target * (1 - params.lower_wall)
             self.upper_target_wall = self.ma_target * (1 + params.upper_wall)
             self.lower_target_cushion = self.ma_target * (1 - params.lower_cushion)
@@ -156,15 +159,17 @@ class Day():
 
             # Price Target
             self.ma_target = calc_price_target(params=params, prev_day=prev_day, prev_lags=prev_lags)
+            self.lb_target = prev_day.supply and prev_day.liq_backing / prev_day.supply or 0
+            self.target = max(self.ma_target, self.lb_target)
             self.prev_price = prev_day.price
 
             # Walls
-            self.lower_target_wall = self.ma_target * (1 - params.lower_wall)
-            self.upper_target_wall = self.ma_target * (1 + params.upper_wall)
+            self.lower_target_wall = self.target * (1 - params.lower_wall)
+            self.upper_target_wall = self.target * (1 + params.upper_wall)
 
             # Cushions
-            self.lower_target_cushion = self.ma_target * (1 - params.lower_cushion)
-            self.upper_target_cushion = self.ma_target * (1 + params.upper_cushion)
+            self.lower_target_cushion = self.target * (1 - params.lower_cushion)
+            self.upper_target_cushion = self.target * (1 + params.upper_cushion)
 
             # Reinstate Window --> Inside the range counters
             if prev_day.price > prev_day.ma_target:
@@ -235,6 +240,8 @@ class Day():
             # BID: Real Bid Capacity - Totals
             if (sum(self.bid_counter) >= params.min_counter_reinstate or params.with_reinstate_window == 'No') and natural_price > self.lower_target_cushion:  # Refill capacity
                 self.bid_capacity = self.bid_capacity_target
+            elif natural_price <= self.lb_target * (1 - params.lower_wall): # Below liquid backing, the wall has infinite capacity (unlimited treasury redemptions at those levels)
+                self.bid_capacity = self.bid_capacity_target
             elif natural_price < self.lower_target_wall:  # Deploy cushion capcity
                 self.bid_capacity = prev_day.bid_capacity + self.net_flow - self.reserves_in + prev_day.liq_usd - (self.k * self.lower_target_wall) ** (1/2)
             else:
@@ -249,7 +256,10 @@ class Day():
                 self.bid_capacity_cushion = self.bid_capacity
 
             # BID: Effective Bid Capacity Changes - Totals
-            if natural_price >= self.lower_target_wall:  # If wall wasn't used, update with cushion
+            if natural_price <= self.lb_target * (1 - params.lower_wall): # Below liquid backing, the wall has infinite capacity (unlimited treasury redemptions at those levels)
+                self.bid_change_usd = self.reserves_in - self.net_flow - prev_day.liq_usd + (self.k * self.lower_target_wall) ** (1/2)
+                self.bid_change_ohm = self.lower_target_wall and self.bid_change_usd / self.lower_target_wall or 0
+            elif natural_price >= self.lower_target_wall:  # If wall wasn't used, update with cushion
                 self.bid_change_usd = self.bid_change_cushion_usd
                 self.bid_change_ohm = self.bid_change_cushion_ohm
             else:
@@ -322,7 +332,6 @@ class Day():
             self.liq_ohm = self.liq_usd and self.k / self.liq_usd or 0  # ensure that if liq_usd is 0 then liq_ohm is 0 as well
             self.price = self.liq_ohm and self.liq_usd / self.liq_ohm or 0  # ensure that if liq_ohm is 0 then price is 0 as well
 
-
             # Reserves
             self.reserves_out = self.liq_usd - prev_day.liq_usd - self.net_flow - self.reserves_in
             self.reserves = max(prev_day.reserves - self.reserves_out, 0)
@@ -338,6 +347,7 @@ class Day():
 
         self.floating_supply = max(self.supply - self.liq_ohm, 0)
         self.treasury = self.liq_usd + self.reserves
+        self.liq_backing = self.treasury + params.initial_reserves_volatile
         self.mcap = self.supply * self.price
         self.floating_mcap = self.floating_supply * self.price
 
@@ -381,7 +391,7 @@ def rr_framework(supply:int, with_dynamic_reward_rate:str, rr_controller:int, ve
         r = 0.0009 * 3 / 100
 
     if version == "flat":
-        return 0.000198 # (1 + r) ^ 365 = 7.5%
+        return 0.000198 # (1 + r) ^ 365 ~ 7.5%
 
     else:
         if with_dynamic_reward_rate == 'No':
