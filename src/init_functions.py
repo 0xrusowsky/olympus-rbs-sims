@@ -4,7 +4,7 @@ import math
 from typing import Dict, List, Tuple
 
 # Get initial params based on historical data
-def initial_params(netflow_type:str, netflow_data:str=None, initial_date:str=None, initial_supply:float=None, initial_reserves_usd:float=None, initial_reserves_volatile:float=None, initial_liq_usd:float=None, initial_price:float=None, initial_target:float=None):
+def initial_params(netflow_type:str, netflow_data:str=None, initial_date:str=None, initial_supply:float=None, initial_reserves_stables:float=None, initial_reserves_volatile:float=None, initial_liq_stables:float=None, initial_price:float=None, initial_target:float=None):
     if netflow_type == 'historical':
         if initial_date is not None:
             historical_df = pd.read_csv('data/historical_ohm_data.csv', usecols= ['date','net_flows', 'price', 'supply','liquidity','reserves','reserves_volatile'])
@@ -26,9 +26,9 @@ def initial_params(netflow_type:str, netflow_data:str=None, initial_date:str=Non
         historical_net_flows = None
 
     price = initial_price
-    liq_usd = initial_liq_usd
+    liq_usd = initial_liq_stables
     supply = initial_supply
-    reserves = initial_reserves_usd
+    reserves = initial_reserves_stables
     reserves_volatile = initial_reserves_volatile
     target = initial_target
     
