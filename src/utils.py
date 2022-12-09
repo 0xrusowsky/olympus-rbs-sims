@@ -6,25 +6,31 @@ from typing import Dict, List, Tuple
 
 class ModelParams():
     def __init__(self, seed:int, netflow_type:str, horizon:int, ask_factor:float, bid_factor:float, cushion_factor:float, target_ma:float, lower_wall:float, upper_wall:float, lower_cushion:float, upper_cushion:float, reinstate_window:int, min_counter_reinstate:int, min_premium_target:int, max_outflow_rate:float, supply_amplitude:int, reserve_change_speed:float, max_liq_ratio:float, cycle_reweights:float, release_capture:float, demand_factor:float, supply_factor:float, initial_supply:float, initial_reserves_usd:float, initial_reserves_volatile:float, initial_liq_usd:float, arb_factor:float, initial_price:float, initial_target:float, target_price_function:str, short_cycle:int, long_cycle:int, long_sin_offset:float, long_cos_offset:float, with_reinstate_window:str, with_dynamic_reward_rate:str):
+    
+        # MARKET BEHAVIOR PARAMETERS
         self.seed = seed
         self.horizon = horizon
-        self.cycle_reweights = cycle_reweights
-        self.reserve_change_speed = reserve_change_speed
-        self.short_cycle = short_cycle
-        self.long_cycle = long_cycle
-        self.long_sin_offset = long_sin_offset
-        self.long_cos_offset = long_cos_offset
-        self.supply_amplitude = supply_amplitude
-
-        self.max_liq_ratio = max_liq_ratio
-        self.min_premium_target = min_premium_target
-        self.release_capture = release_capture  # Deprecated
-        self.max_outflow_rate = max_outflow_rate
-        self.with_reinstate_window = with_reinstate_window
-        self.with_dynamic_reward_rate = with_dynamic_reward_rate
         self.demand_factor = demand_factor
         self.supply_factor = supply_factor
+        self.netflow_type = netflow_type
+        self.arb_factor = arb_factor  # Deprecated. No arbitrage assumptions since Montecarlos was used to model market behavior.
+        self.cycle_reweights = cycle_reweights  # Deprecated.
+        self.reserve_change_speed = reserve_change_speed  # Deprecated.
+        self.short_cycle = short_cycle  # Only applicable for market behavior assumptions = sin/cos waves. Not used for sims since Montecarlo was used.
+        self.long_cycle = long_cycle  # Only applicable for market behavior assumptions = sin/cos waves. Not used for sims since Montecarlo was used.
+        self.long_sin_offset = long_sin_offset  # Only applicable for market behavior assumptions = sin/cos waves. Not used for sims since Montecarlo was used.
+        self.long_cos_offset = long_cos_offset  # Only applicable for market behavior assumptions = sin/cos waves. Not used for sims since Montecarlo was used.
+        self.supply_amplitude = supply_amplitude  # Only applicable for market behavior assumptions = sin/cos waves. Not used for sims since Montecarlo was used.
 
+        # PROTOCOL-RELATED PARAMETERS
+        self.max_liq_ratio = max_liq_ratio
+        self.min_premium_target = min_premium_target  # Implemented as ZERO.
+        self.release_capture = release_capture  # Deprecated.
+        self.max_outflow_rate = max_outflow_rate
+        self.with_reinstate_window = with_reinstate_window  # Implemented as YES.
+        self.with_dynamic_reward_rate = with_dynamic_reward_rate  # Implemented as NO. After OIP 119 regardless of the scenario, reward rate is fixed.
+
+        # MARKET OPERATIONS-RELATED PARAMETERS
         self.target_ma = target_ma
         self.lower_wall = lower_wall
         self.upper_wall = upper_wall
@@ -36,6 +42,7 @@ class ModelParams():
         self.reinstate_window = reinstate_window
         self.min_counter_reinstate = min_counter_reinstate
 
+        # INITIAL PROTOCOL PARAMETERS
         self.initial_supply = initial_supply
         self.initial_liq_usd = initial_liq_usd
         self.initial_reserves_usd = initial_reserves_usd
@@ -44,8 +51,6 @@ class ModelParams():
         self.initial_price = initial_price
         self.initial_target = initial_target
         self.target_price_function = target_price_function
-        self.netflow_type = netflow_type
-        self.arb_factor = arb_factor
 
 
 class Day():
@@ -127,9 +132,8 @@ class Day():
             else:  # inside the range
                 self.reward_rate = rr_framework(prev_day.supply, params.with_dynamic_reward_rate, 0)
 
-            # Floating Supply Rebase
+            # Supply expansion (only for reporting purposes)
             self.supply = prev_day.price and max((prev_day.supply - prev_day.reserves_in / prev_day.prev_price + prev_day.ask_change_ohm - prev_day.bid_change_ohm) * (1 + self.reward_rate), 0) or 0
-
 
             # -- LIQUIDITY POOL ---------------------------------------------------------------------------------
 
@@ -345,7 +349,7 @@ class Day():
         
         # -- PROTOCOL VARIABLES (FOR REPORTING) ---------------------------------------------------------------------------------------
 
-        self.floating_supply = max(self.supply - self.liq_ohm, 0)
+        self.floating_supply = max(self.supply - self.liq_ohm, 0)  # Note that liq_ohm rebases when self.k is calculated --> L153
         self.treasury = self.liq_usd + self.reserves
         self.liq_backing = self.treasury + params.initial_reserves_volatile
         self.mcap = self.supply * self.price
@@ -433,8 +437,9 @@ def calc_price_target(params:ModelParams, prev_day:Day, prev_lags:Dict[int, Tupl
                 s += prev_lags['price'][1][i+1]
             s += prev_lags['price'][1][1] * (params.target_ma - days)
             return s / params.target_ma
-            
-    elif params.target_price_function == 'avg_lags':  # Deprecated
+
+    # Deprecated
+    elif params.target_price_function == 'avg_lags':
         if prev_day.day % (params.short_cycle) == 0:
             s = 0
             lag_keys = set(prev_lags.keys()) - set(['price', 'target', 'natural', 'avg'])
@@ -446,7 +451,8 @@ def calc_price_target(params:ModelParams, prev_day:Day, prev_lags:Dict[int, Tupl
         else:
             return prev_day.ma_target
 
-    elif params.target_price_function == 'price_cycle_avg':  # Deprecated
+    # Deprecated
+    elif params.target_price_function == 'price_cycle_avg':
         if prev_day.day % (params.short_cycle) == 0:
             s = 0
             days = len(prev_lags['price'][1]) - 1
