@@ -334,7 +334,7 @@ class Day():
             self.price = self.liq_ohm and self.liq_stables / self.liq_ohm or 0  # ensure that if liq_ohm is 0 then price is 0 as well
 
             # Reserves
-            self.reserves_out = self.liq_stables - prev_day.liq_stables - self.net_flow - self.reserves_in
+            self.reserves_out = self.liq_stables - prev_day.liq_stables - self.net_flow  # - self.reserves_in (error caught by blockscience)
             self.reserves_stables = max(prev_day.reserves_stables - self.reserves_out, 0)
             self.prev_reserves = prev_day.reserves_stables
 
