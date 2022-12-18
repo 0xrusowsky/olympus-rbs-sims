@@ -160,7 +160,7 @@ class Day():
 
             # Price Target
             self.ma_target = calc_price_target(params=params, prev_day=prev_day, prev_lags=prev_lags)
-            self.lb_target = prev_day.supply and prev_day.liq_backing / prev_day.supply or 0
+            self.lb_target = prev_day.floating_supply and prev_day.liq_backing / prev_day.floating_supply or 0
             self.target = max(self.ma_target, self.lb_target)
             self.prev_price = prev_day.price
 
