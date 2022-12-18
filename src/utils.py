@@ -153,14 +153,14 @@ class Day():
                 self.reserves_in = 0
 
             # AMM k
-            self.k = prev_day.price and ((prev_day.liq_stables - self.reserves_in)**2 / prev_day.price) or 0
+            self.k = prev_day.price and ((prev_day.liq_stables - self.reserves_in)**2 / prev_day.price) or 0  # Mint & sync has been deprecated
 
 
             # -- RBS PRICE ---------------------------------------------------------------------------------------
 
             # Price Target
             self.ma_target = calc_price_target(params=params, prev_day=prev_day, prev_lags=prev_lags)
-            self.lb_target = prev_day.supply and prev_day.liq_backing / prev_day.supply or 0
+            self.lb_target = prev_day.floating_supply and prev_day.liq_backing / prev_day.floating_supply or 0
             self.target = max(self.ma_target, self.lb_target)
             self.prev_price = prev_day.price
 
@@ -346,7 +346,7 @@ class Day():
         
         # -- PROTOCOL VARIABLES (FOR REPORTING) ---------------------------------------------------------------------------------------
 
-        self.floating_supply = max(self.supply - self.liq_ohm, 0)  # Note that liq_ohm rebases when self.k is calculated --> L153
+        self.floating_supply = max(self.supply - self.liq_ohm, 0)
         self.treasury_stables = self.liq_stables + self.reserves_stables
         self.liq_backing = self.treasury_stables + params.initial_reserves_volatile
         self.mcap = self.supply * self.price
