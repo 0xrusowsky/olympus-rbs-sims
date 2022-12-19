@@ -173,7 +173,7 @@ class Day():
             self.upper_target_cushion = self.target * (1 + params.upper_cushion)
 
             # Reinstate Window --> Inside the range counters
-            if prev_day.price > prev_day.ma_target:
+            if prev_day.price > prev_day.target:
                 self.bid_counter = prev_day.bid_counter[1:] + [1]
             else:
                 self.bid_counter = prev_day.bid_counter[1:] + [0]
