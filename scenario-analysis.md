@@ -1,5 +1,6 @@
 # Exploring how RBS impacts the future of Olympus: A Simulation-Based Analysis
 *Read the [published article](https://hackmd.io/poMqzoWzRVyAhn49ilrsCg) on hackmd.io*
+
 After the public launch of the Range Bound Stability (RBS) system, I thought I would share a complementary document to the [simulations report](https://olympusdao.notion.site/RBS-Report-fd88cb37208d4b0f9abaca4e276f9ddd). The aim of such document is to showcase some interesting scenarios (based on randomly simulated market behavior) so that people can better understand its mechanics.
 
 Nevertheless, I had to postpone its public release to re-run the simulations with the [changes implemented in OIP-125](https://forum.olympusdao.finance/d/1676-oip-125-rbs-parameter-changes). Now, a couple of weeks after the implementation of the system enhancements in production, it is time to publicly share the data.
