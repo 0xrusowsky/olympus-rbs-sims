@@ -139,21 +139,7 @@ class Day():
         self.supply = prev_day.price and max((prev_day.supply - prev_day.reserves_in / prev_day.prev_price + prev_day.ask_change_ohm - prev_day.bid_change_ohm) * (1 + self.reward_rate), 0) or 0
 
         # -- LIQUIDITY POOL ---------------------------------------------------------------------------------
-        # Treasury Rebalance - Reserve Intake
-        if self.day % 7 == 0:  # Rebalance once a week
-            self.reserves_in = prev_day.liq_stables - prev_day.treasury_stables * params.max_liq_ratio
-            if prev_day.target_liq_ratio_reached is False:
-                max_outflow = (-1) * prev_day.reserves_stables * params.max_outflow_rate * 2 / 3  # Smaller max_outflow_rate until target is first reached
-            else:
-                max_outflow = (-1) * prev_day.reserves_stables * params.max_outflow_rate  # Ensure that the reserve release is limited by max_outflow_rate
-            
-            # max_outflow is really target. reserves_stables is updated in L320
-            if self.reserves_in < max_outflow:
-                self.reserves_in = max_outflow
-            if self.reserves_in < (-1) * prev_day.reserves_stables:  # Ensure that the reserve release is limited by the total reserves left
-                self.reserves_in = (-1) * prev_day.reserves_stables
-        else:
-            self.reserves_in = 0
+        update_reserve_intake(params=params, prev_day=prev_day, prev_lags=prev_lags)
 
         # AMM k
         self.k = prev_day.price and ((prev_day.liq_stables - self.reserves_in)**2 / prev_day.price) or 0  # Mint & sync has been deprecated
@@ -353,6 +339,23 @@ class Day():
         prev_lags['gohm price variation'][1][self.day] = self.price * (1 + self.reward_rate)        
         self.gohm_volatility = calc_gohm_volatility(prev_lags=prev_lags)
 
+
+    def update_reserve_intake(self, params:ModelParams, prev_day=None):
+        # Treasury Rebalance - Reserve Intake
+        if self.day % 7 == 0:  # Rebalance once a week
+            self.reserves_in = prev_day.liq_stables - prev_day.treasury_stables * params.max_liq_ratio
+            if prev_day.target_liq_ratio_reached is False:
+                max_outflow = (-1) * prev_day.reserves_stables * params.max_outflow_rate * 2 / 3  # Smaller max_outflow_rate until target is first reached
+            else:
+                max_outflow = (-1) * prev_day.reserves_stables * params.max_outflow_rate  # Ensure that the reserve release is limited by max_outflow_rate
+            
+            # max_outflow is really target. reserves_stables is updated in L320
+            if self.reserves_in < max_outflow:
+                self.reserves_in = max_outflow
+            if self.reserves_in < (-1) * prev_day.reserves_stables:  # Ensure that the reserve release is limited by the total reserves left
+                self.reserves_in = (-1) * prev_day.reserves_stables
+        else:
+            self.reserves_in = 0
 
     def update_rbs_parameters(self, params:ModelParams, prev_day=None, prev_lags=Dict[int, Tuple[int, Dict[int, float]]]):
         # Price Target
