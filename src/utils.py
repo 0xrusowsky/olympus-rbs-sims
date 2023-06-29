@@ -2,55 +2,57 @@ import random
 import math
 import numpy as np
 from typing import Dict, List, Tuple
+from dataclasses import dataclass
 
-
+@dataclass
 class ModelParams():
-    def __init__(self, seed:int, netflow_type:str, horizon:int, ask_factor:float, bid_factor:float, cushion_factor:float, target_ma:float, lower_wall:float, upper_wall:float, lower_cushion:float, upper_cushion:float, reinstate_window:int, min_counter_reinstate:int, min_premium_target:int, max_outflow_rate:float, supply_amplitude:int, reserve_change_speed:float, max_liq_ratio:float, cycle_reweights:float, release_capture:float, demand_factor:float, supply_factor:float, initial_supply:float, initial_reserves_stables:float, initial_reserves_volatile:float, initial_liq_stables:float, arb_factor:float, initial_price:float, initial_target:float, target_price_function:str, short_cycle:int, long_cycle:int, long_sin_offset:float, long_cos_offset:float, with_reinstate_window:str, with_dynamic_reward_rate:str):
+    # MARKET BEHAVIOR PARAMETERS
+    seed:int
+    netflow_type:str # random, historical, or sin/cos waves
+    horizon:int
+    demand_factor:float
+    supply_factor:float # We want to influence the randomness toward a specific outcome (bullish = demand, bearish = supply) 
+    arb_factor:float # Deprecated. No arbitrage assumptions since Montecarlos was used to model market behavior.
+    cycle_reweights:float # Deprecated
+    reserve_change_speed:float # Deprecated
+    short_cycle:int # Only applicable for market behavior assumptions = sin/cos waves. Not used for sims since Montecarlo was used.
+    long_cycle:int  # Only applicable for market behavior assumptions = sin/cos waves. Not used for sims since Montecarlo was used.
+    long_sin_offset:float # Only applicable for market behavior assumptions = sin/cos waves. Not used for sims since Montecarlo was used.
+    long_cos_offset:float # Only applicable for market behavior assumptions = sin/cos waves. Not used for sims since Montecarlo was used.
+    supply_amplitude:int # Only applicable for market behavior assumptions = sin/cos waves. Not used for sims since Montecarlo was used.
+
+    # PROTOCOL-RELATED PARAMETERS
+    max_liq_ratio:float
+    min_premium_target:int # Deprecated
+    release_capture:float # Deprecated.
+    max_outflow_rate:float # Limits how much PCV can leave the treasury per some period of time
+    with_reinstate_window:str # Implemented as YES.
+    with_dynamic_reward_rate:str # Implemented as NO. After OIP 119 regardless of the scenario, reward rate is fixed.
+
+    # MARKET OPERATIONS-RELATED PARAMETERS
+    target_ma:float # 30-day moving average
+    lower_wall:float
+    upper_wall:float
+    lower_cushion:float
+    upper_cushion:float
+    bid_factor:float
+    ask_factor:float
+    cushion_factor:float
+    reinstate_window:int
+    min_counter_reinstate:int
+
+    # INITIAL PROTOCOL PARAMETERS - these get passed in the simulation.ipynb
+    initial_supply:float
+    initial_reserves_stables:float
+    initial_reserves_volatile:float
+    initial_liq_stables:float
+    initial_price:float
+    initial_target:float
+    target_price_function:str
     
-        # MARKET BEHAVIOR PARAMETERS
-        self.seed = seed
-        self.horizon = horizon
-        self.demand_factor = demand_factor
-        self.supply_factor = supply_factor
-        self.netflow_type = netflow_type
-        self.arb_factor = arb_factor  # Deprecated. No arbitrage assumptions since Montecarlos was used to model market behavior.
-        self.cycle_reweights = cycle_reweights  # Deprecated.
-        self.reserve_change_speed = reserve_change_speed  # Deprecated.
-        self.short_cycle = short_cycle  # Only applicable for market behavior assumptions = sin/cos waves. Not used for sims since Montecarlo was used.
-        self.long_cycle = long_cycle  # Only applicable for market behavior assumptions = sin/cos waves. Not used for sims since Montecarlo was used.
-        self.long_sin_offset = long_sin_offset  # Only applicable for market behavior assumptions = sin/cos waves. Not used for sims since Montecarlo was used.
-        self.long_cos_offset = long_cos_offset  # Only applicable for market behavior assumptions = sin/cos waves. Not used for sims since Montecarlo was used.
-        self.supply_amplitude = supply_amplitude  # Only applicable for market behavior assumptions = sin/cos waves. Not used for sims since Montecarlo was used.
-
-        # PROTOCOL-RELATED PARAMETERS
-        self.max_liq_ratio = max_liq_ratio
-        self.min_premium_target = min_premium_target  # Deprecated.
-        self.release_capture = release_capture  # Deprecated.
-        self.max_outflow_rate = max_outflow_rate
-        self.with_reinstate_window = with_reinstate_window  # Implemented as YES.
-        self.with_dynamic_reward_rate = with_dynamic_reward_rate  # Implemented as NO. After OIP 119 regardless of the scenario, reward rate is fixed.
-
-        # MARKET OPERATIONS-RELATED PARAMETERS
-        self.target_ma = target_ma
-        self.lower_wall = lower_wall
-        self.upper_wall = upper_wall
-        self.lower_cushion = lower_cushion
-        self.upper_cushion = upper_cushion
-        self.bid_factor = bid_factor
-        self.ask_factor = ask_factor
-        self.cushion_factor = cushion_factor
-        self.reinstate_window = reinstate_window
-        self.min_counter_reinstate = min_counter_reinstate
-
-        # INITIAL PROTOCOL PARAMETERS
-        self.initial_supply = initial_supply
-        self.initial_liq_stables = initial_liq_stables
-        self.initial_reserves_stables = initial_reserves_stables
-        self.initial_reserves_volatile = initial_reserves_volatile
-        self.initial_liq_backing = initial_reserves_stables + initial_reserves_volatile + initial_liq_stables
-        self.initial_price = initial_price
-        self.initial_target = initial_target
-        self.target_price_function = target_price_function
+    # Initialize any derived variables.
+    def __post_init__(self):
+        self.initial_liq_backing = self.initial_reserves_stables + self.initial_reserves_volatile + self.initial_liq_stables
 
 
 class Day():
@@ -78,6 +80,8 @@ class Day():
 
             self.ma_target = params.initial_target
             self.lb_target = params.initial_liq_backing / params.initial_supply
+            self.target    = max(self.ma_target, self.lb_target)
+
             self.lower_target_wall = self.ma_target * (1 - params.lower_wall)
             self.upper_target_wall = self.ma_target * (1 + params.upper_wall)
             self.lower_target_cushion = self.ma_target * (1 - params.lower_cushion)
