@@ -78,6 +78,8 @@ class Day():
 
             self.ma_target = params.initial_target
             self.lb_target = params.initial_liq_backing / params.initial_supply
+            self.target    = max(self.ma_target, self.lb_target)
+
             self.lower_target_wall = self.ma_target * (1 - params.lower_wall)
             self.upper_target_wall = self.ma_target * (1 + params.upper_wall)
             self.lower_target_cushion = self.ma_target * (1 - params.lower_cushion)
