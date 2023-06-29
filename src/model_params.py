@@ -3,6 +3,15 @@ import pandas as pd
 
 @dataclass
 class ModelParams():
+    # INITIAL PROTOCOL PARAMETERS - these get passed in the simulation.ipynb
+    initial_supply:float = 25000000 # Starting supply of OHM
+    initial_reserves_stables:float = 170000000 # rename to initial_reserves and drop initial_resrves_volatile. rename code.
+    initial_reserves_volatile:float = 25000000
+    initial_liq_stables:float = 21000000 # initial_liq_stables -> this will become OHM-ETH liquidity. However, need to consider OHM-stables liquidity as that can impact RBS.
+    initial_price:float = 9.5  # used to determine amount of OHM in pool and therefore K. Change to OHM in ETH terms.
+    initial_target:float = 9.5 # we can just it to liquid backing.
+    target_price_function:str = 'price_moving_avg'
+
     # MARKET BEHAVIOR PARAMETERS
     netflow_type:str  # Determines the netflow types. Either 'historical', 'enforced', 'random', or 'cycles' (sin/cos waves)
     seed:int = 69 # Seed number to control simulation randomness
@@ -16,7 +25,7 @@ class ModelParams():
     with_reinstate_window:str = 'Yes'
     with_dynamic_reward_rate:str = 'No' # Implemented as NO. After OIP 119 regardless of the scenario, reward rate is fixed.
 
-    # MARKET OPERATIONS-RELATED PARAMETERS
+    # RBS PARAMETERS
     target_ma:float  = 30  # Length of the price target moving average (in days) # 30-day moving average
     lower_wall:float = 0.15  # Determines lower wall price target at x% below the target price
     upper_wall:float = 0.15  # Determines upper wall price target at x% above the target price
@@ -27,16 +36,6 @@ class ModelParams():
     cushion_factor:float = 0.3075  # The percentage of a bid or ask to offer as a cushion
     reinstate_window:int = 7  # The window of time (in days) to reinstate a bid or ask
     min_counter_reinstate:int = 6  # Number of days within the reinstate window that conditions are true to reinstate a bid or ask
-
-    # INITIAL PROTOCOL PARAMETERS - these get passed in the simulation.ipynb
-    initial_supply:float = 25000000 # Starting supply of OHM
-    initial_reserves_stables:float = 170000000 # rename to initial_reserves and drop initial_resrves_volatile. rename code.
-    initial_reserves_volatile:float = 25000000
-    initial_liq_stables:float = 21000000 # initial_liq_stables -> this will become OHM-ETH liquidity. However, need to consider OHM-stables liquidity as that can impact RBS.
-    initial_price:float = 9.5  # used to determine amount of OHM in pool and therefore K. Change to OHM in ETH terms.
-    initial_target:float = 9.5 # we can just it to liquid backing.
-    target_price_function:str = 'price_moving_avg'
-    
 
     # DEPRECATED
     min_premium_target:int  = 0  # Minimum premium for mint&sync --> to keep adding liquidity as supply grows  # Deprecated
