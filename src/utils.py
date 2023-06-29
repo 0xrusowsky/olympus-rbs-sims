@@ -150,29 +150,14 @@ class Day():
         # -- MARKET BEHAVIOR (MODEL INPUT) - Market opens and operations begin  ---------------------------------------------------------------------------------------
         simulate_market_behavior(params=params, prev_day=prev_day, prev_lags=prev_lags, historical_net_flows=historical_net_flows)
 
-        # -- TREASURY MARKET OPERATIONS ---------------------------------------------------------------------------------------
-        # How it works: calculate natural_price w/o RBS interventions (following xy=k), then compare to cushions and do market operations if necessary
 
+        # Run RBS market operations
         perform_rbs_operations(params=params, prev_day=prev_day)
 
+        # Update treasury metrics
+        update_treasury_metrics(params=params, prev_day=prev_day)
 
-        # 3. Market closes; market cleanup and accounting updates
-        # -- TREASURY ---------------------------------------------------------------------------------------
 
-        # Liquidity
-        self.liq_stables = max(prev_day.liq_stables + self.net_flow - self.reserves_in + self.bid_change_usd - self.ask_change_usd, 0)
-        self.liq_ohm = self.liq_stables and self.k / self.liq_stables or 0  # ensure that if liq_stables is 0 then liq_ohm is 0 as well
-        self.price = self.liq_ohm and self.liq_stables / self.liq_ohm or 0  # ensure that if liq_ohm is 0 then price is 0 as well
-
-        # Reserves
-        self.reserves_out = self.liq_stables - prev_day.liq_stables - self.net_flow  # - self.reserves_in (error caught by blockscience)
-        self.reserves_stables = max(prev_day.reserves_stables - self.reserves_out, 0)
-        self.prev_reserves = prev_day.reserves_stables
-
-        self.ohm_traded = (self.price + prev_day.price) and (-2) * self.reserves_out / (self.price + prev_day.price) or 0
-        self.cum_ohm_purchased = prev_day.cum_ohm_purchased - self.ohm_traded
-        self.cum_ohm_burnt = prev_day.cum_ohm_burnt + self.bid_change_ohm
-        self.cum_ohm_minted = prev_day.cum_ohm_minted + self.ask_change_ohm
 
     def update_protocol_metrics(self, params:ModelParams, prev_lags=Dict[int, Tuple[int, Dict[int, float]]]):
         self.floating_supply = max(self.supply - self.liq_ohm, 0)
@@ -388,6 +373,22 @@ class Day():
             self.ask_change_usd = prev_day.ask_capacity * self.upper_target_wall
 
 
+
+    def update_treasury_metrics(self, params:ModelParams, prev_day=None):
+        # Liquidity
+        self.liq_stables = max(prev_day.liq_stables + self.net_flow - self.reserves_in + self.bid_change_usd - self.ask_change_usd, 0)
+        self.liq_ohm = self.liq_stables and self.k / self.liq_stables or 0  # ensure that if liq_stables is 0 then liq_ohm is 0 as well
+        self.price = self.liq_ohm and self.liq_stables / self.liq_ohm or 0  # ensure that if liq_ohm is 0 then price is 0 as well
+
+        # Reserves
+        self.reserves_out = self.liq_stables - prev_day.liq_stables - self.net_flow  # - self.reserves_in (error caught by blockscience)
+        self.reserves_stables = max(prev_day.reserves_stables - self.reserves_out, 0)
+        self.prev_reserves = prev_day.reserves_stables
+
+        self.ohm_traded = (self.price + prev_day.price) and (-2) * self.reserves_out / (self.price + prev_day.price) or 0
+        self.cum_ohm_purchased = prev_day.cum_ohm_purchased - self.ohm_traded
+        self.cum_ohm_burnt = prev_day.cum_ohm_burnt + self.bid_change_ohm
+        self.cum_ohm_minted = prev_day.cum_ohm_minted + self.ask_change_ohm
 
 
 # NOTE: Not that important since we were just ideating. After OIP 119 regardless of the scenario, reward rate is fixed.
