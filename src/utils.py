@@ -159,33 +159,8 @@ class Day():
         # AMM k
         self.k = prev_day.price and ((prev_day.liq_stables - self.reserves_in)**2 / prev_day.price) or 0  # Mint & sync has been deprecated
 
-
-        # -- RBS PRICE ---------------------------------------------------------------------------------------
-        # Price Target
-        self.ma_target = calc_price_target(params=params, prev_day=prev_day, prev_lags=prev_lags)
-        self.lb_target = prev_day.floating_supply and prev_day.liq_backing / prev_day.floating_supply or 0
-        self.target = max(self.ma_target, self.lb_target)
-        self.prev_price = prev_day.price
-
-        # Walls
-        self.lower_target_wall = self.target * (1 - params.lower_wall)
-        self.upper_target_wall = self.target * (1 + params.upper_wall)
-
-        # Cushions
-        self.lower_target_cushion = self.target * (1 - params.lower_cushion)
-        self.upper_target_cushion = self.target * (1 + params.upper_cushion)
-
-        # Reinstate Window --> Inside the range counters
-        if prev_day.price > prev_day.target:
-            self.bid_counter = prev_day.bid_counter[1:] + [1]
-        else:
-            self.bid_counter = prev_day.bid_counter[1:] + [0]
-
-        if prev_day.price < prev_day.ma_target:
-            self.ask_counter = prev_day.ask_counter[1:] + [1]
-        else:
-            self.ask_counter = prev_day.ask_counter[1:] + [0]
-
+        # RBS
+        update_rbs_parameters(params=params, prev_day=prev_day, prev_lags=prev_lags)
 
         # 2. Market opens and operations begin
         # -- MARKET BEHAVIOR (MODEL INPUT) ---------------------------------------------------------------------------------------
@@ -396,6 +371,31 @@ class Day():
             return rr_framework(prev_day.supply, params.with_dynamic_reward_rate, 0)
 
 
+    def update_rbs_parameters(self, params:ModelParams, prev_day=None, prev_lags=Dict[int, Tuple[int, Dict[int, float]]]):
+        # Price Target
+        self.ma_target = calc_price_target(params=params, prev_day=prev_day, prev_lags=prev_lags)
+        self.lb_target = prev_day.floating_supply and prev_day.liq_backing / prev_day.floating_supply or 0
+        self.target = max(self.ma_target, self.lb_target)
+        self.prev_price = prev_day.price
+
+        # Walls
+        self.lower_target_wall = self.target * (1 - params.lower_wall)
+        self.upper_target_wall = self.target * (1 + params.upper_wall)
+
+        # Cushions
+        self.lower_target_cushion = self.target * (1 - params.lower_cushion)
+        self.upper_target_cushion = self.target * (1 + params.upper_cushion)
+
+        # Reinstate Window --> Inside the range counters
+        if prev_day.price > prev_day.target:
+            self.bid_counter = prev_day.bid_counter[1:] + [1]
+        else:
+            self.bid_counter = prev_day.bid_counter[1:] + [0]
+
+        if prev_day.price < prev_day.ma_target:
+            self.ask_counter = prev_day.ask_counter[1:] + [1]
+        else:
+            self.ask_counter = prev_day.ask_counter[1:] + [0]
 
 # Reward rate framework
 def rr_framework(supply:int, with_dynamic_reward_rate:str, rr_controller:int, version="flat"):
