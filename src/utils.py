@@ -68,32 +68,8 @@ class Day():
             initialize_from_previous_day(params, prev_arbs, prev_day, prev_lags, historical_net_flows)
 
         
-        # -- PROTOCOL VARIABLES (FOR REPORTING) ---------------------------------------------------------------------------------------
-
-        self.floating_supply = max(self.supply - self.liq_ohm, 0)
-        self.treasury_stables = self.liq_stables + self.reserves_stables
-        self.liq_backing = self.treasury_stables + params.initial_reserves_volatile
-        self.mcap = self.supply * self.price
-        self.floating_mcap = self.floating_supply * self.price
-
-        self.liq_ratio = self.treasury_stables and self.liq_stables / self.treasury_stables or 0
-        self.target_liq_ratio_reached = True if self.liq_ratio >= params.max_liq_ratio else False
-        self.reserves_ratio = self.liq_stables and self.reserves_stables / self.liq_stables or 0
-        self.fmcap_treasury_ratio = self.treasury_stables and self.floating_mcap / self.treasury_stables or 0
-        self.liq_fmcap_ratio = self.floating_mcap and self.liq_stables / self.floating_mcap or 0
-
-        self.total_demand = self.market_demand  # + self.arb_demand
-        self.total_supply = self.market_supply  # + self.arb_supply
-        self.total_net = self.total_demand + self.total_supply
-
-        self.control_ask = sum(self.ask_counter)
-        self.control_bid = sum(self.bid_counter)
-
-        prev_lags['price'][1][self.day] = self.price
-        prev_lags['target'][1][self.day] = self.ma_target
-        prev_lags['gohm price variation'][1][self.day] = self.price * (1 + self.reward_rate)        
-        self.gohm_volatility = calc_gohm_volatility(prev_lags=prev_lags)
-
+        # PROTOCOL VARIABLES (FOR REPORTING) 
+        update_protocol_metrics(params, prev_lags)
 
 
     def initialize_first_day(self, params:ModelParams, prev_arbs:Dict[int, Tuple[float, float]]):
@@ -391,7 +367,34 @@ class Day():
         self.cum_ohm_purchased = prev_day.cum_ohm_purchased - self.ohm_traded
         self.cum_ohm_burnt = prev_day.cum_ohm_burnt + self.bid_change_ohm
         self.cum_ohm_minted = prev_day.cum_ohm_minted + self.ask_change_ohm
-        
+
+    def update_protocol_metrics(self, params:ModelParams, prev_lags=Dict[int, Tuple[int, Dict[int, float]]]):
+        self.floating_supply = max(self.supply - self.liq_ohm, 0)
+        self.treasury_stables = self.liq_stables + self.reserves_stables
+        self.liq_backing = self.treasury_stables + params.initial_reserves_volatile
+        self.mcap = self.supply * self.price
+        self.floating_mcap = self.floating_supply * self.price
+
+        self.liq_ratio = self.treasury_stables and self.liq_stables / self.treasury_stables or 0
+        self.target_liq_ratio_reached = True if self.liq_ratio >= params.max_liq_ratio else False
+        self.reserves_ratio = self.liq_stables and self.reserves_stables / self.liq_stables or 0
+        self.fmcap_treasury_ratio = self.treasury_stables and self.floating_mcap / self.treasury_stables or 0
+        self.liq_fmcap_ratio = self.floating_mcap and self.liq_stables / self.floating_mcap or 0
+
+        self.total_demand = self.market_demand  # + self.arb_demand
+        self.total_supply = self.market_supply  # + self.arb_supply
+        self.total_net = self.total_demand + self.total_supply
+
+        self.control_ask = sum(self.ask_counter)
+        self.control_bid = sum(self.bid_counter)
+
+        prev_lags['price'][1][self.day] = self.price
+        prev_lags['target'][1][self.day] = self.ma_target
+        prev_lags['gohm price variation'][1][self.day] = self.price * (1 + self.reward_rate)        
+        self.gohm_volatility = calc_gohm_volatility(prev_lags=prev_lags)
+
+
+
 
 # Reward rate framework
 def rr_framework(supply:int, with_dynamic_reward_rate:str, rr_controller:int, version="flat"):
