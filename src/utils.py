@@ -60,16 +60,16 @@ class Day():
     # prev_arbs = not really used anymore, 
     # prev_lags = stores historical price (to calculate moving average)
     # prev_day = stores previous day's data so we can update the system during state transition
+
     def __init__(self, params:ModelParams, prev_arbs:Dict[int, Tuple[float, float]], prev_lags=Dict[int, Tuple[int, Dict[int, float]]], prev_day=None, historical_net_flows=None):
         # Initialize variables for the first day
         if prev_day is None:
-            initialize_first_day(params, prev_arbs)
+            self.initialize_first_day(params, prev_arbs)
         else:
-            initialize_from_previous_day(params, prev_arbs, prev_day, prev_lags, historical_net_flows)
+            self.initialize_from_previous_day(params, prev_arbs, prev_lags, prev_day, historical_net_flows)
 
-        
         # PROTOCOL VARIABLES (FOR REPORTING) 
-        update_protocol_metrics(params, prev_lags)
+        self.update_protocol_metrics(params, prev_lags)
 
 
     def initialize_first_day(self, params:ModelParams, prev_arbs:Dict[int, Tuple[float, float]]):
@@ -135,26 +135,24 @@ class Day():
 
         # -- PRE-MARKET OPERATIONS ---------------------------------------------------------------------------------------        
         # Update supply
-        self.reward_rate = calculate_reward_rate(prev_day, params)
+        self.reward_rate = calculate_reward_rate(params, prev_day)
         self.supply = prev_day.price and max((prev_day.supply - prev_day.reserves_in / prev_day.prev_price + prev_day.ask_change_ohm - prev_day.bid_change_ohm) * (1 + self.reward_rate), 0) or 0
 
         # Rebalance treasury and update RBS parameters
-        rebalance_treasury(params=params, prev_day=prev_day, prev_lags=prev_lags)
+        self.rebalance_treasury(params=params, prev_day=prev_day)
         self.k = prev_day.price and ((prev_day.liq_stables - self.reserves_in)**2 / prev_day.price) or 0  # Mint & sync has been deprecated
-        update_rbs_parameters(params=params, prev_day=prev_day, prev_lags=prev_lags)
+        self.update_rbs_parameters(params=params, prev_day=prev_day, prev_lags=prev_lags)
 
         # -- MARKET BEHAVIOR  ---------------------------------------------------------------------------------------
         # Simulate market behavior
-        simulate_market_behavior(params=params, prev_day=prev_day, prev_lags=prev_lags, historical_net_flows=historical_net_flows)
+        self.simulate_market_behavior(params=params, prev_day=prev_day, historical_net_flows=historical_net_flows)
 
         # Run RBS in response
-        perform_rbs_operations(params=params, prev_day=prev_day)
+        self.perform_rbs_operations(params=params, prev_day=prev_day)
 
         # -- MARKET CLOSE  ---------------------------------------------------------------------------------------
-        # Update treasury metrics
-        update_treasury_metrics(params=params, prev_day=prev_day)
-
-
+        # Update treasury mgetrics
+        self.update_treasury_metrics(params=params, prev_day=prev_day)
 
     def update_protocol_metrics(self, params:ModelParams, prev_lags=Dict[int, Tuple[int, Dict[int, float]]]):
         self.floating_supply = max(self.supply - self.liq_ohm, 0)
