@@ -135,7 +135,6 @@ class Day():
 
         # -- PRE-MARKET OPERATIONS ---------------------------------------------------------------------------------------        
         # Supply expansion
-        # reserves_in is amount added to LP (as part of POL) so is tracked likewise. Assumption is xy=k so you get amount of OHM out.
         self.reward_rate = calculate_reward_rate(prev_day, params)
         self.supply = prev_day.price and max((prev_day.supply - prev_day.reserves_in / prev_day.prev_price + prev_day.ask_change_ohm - prev_day.bid_change_ohm) * (1 + self.reward_rate), 0) or 0
 
@@ -163,7 +162,7 @@ class Day():
         update_rbs_parameters(params=params, prev_day=prev_day, prev_lags=prev_lags)
 
         # 2. Market opens and operations begin
-        # -- MARKET BEHAVIOR (MODEL INPUT) ---------------------------------------------------------------------------------------
+        # -- MARKET BEHAVIgOR (MODEL INPUT) ---------------------------------------------------------------------------------------
 
         if params.netflow_type == 'historical' or params.netflow_type == 'enforced' and historical_net_flows is not None:  # Arbitrary market behavior
             self.net_flow = historical_net_flows
@@ -355,22 +354,6 @@ class Day():
         self.gohm_volatility = calc_gohm_volatility(prev_lags=prev_lags)
 
 
-    # NOTE: Not that important since we were just ideating. After OIP 119 regardless of the scenario, reward rate is fixed.
-    def calculate_reward_rate(params:ModelParams, prev_day=None):
-        if prev_day.fmcap_treasury_ratio < 1:  # below backing           
-            return rr_framework(prev_day.supply, params.with_dynamic_reward_rate, -3)
-        elif prev_day.price < prev_day.lower_target_wall:  # below wall
-            return rr_framework(prev_day.supply, params.with_dynamic_reward_rate, -2)
-        elif prev_day.price < prev_day.lower_target_cushion:  # below cushion
-            return rr_framework(prev_day.supply, params.with_dynamic_reward_rate, -1)
-        elif prev_day.fmcap_treasury_ratio > 3:  # above 3x premium
-            return rr_framework(prev_day.supply, params.with_dynamic_reward_rate, 2)
-        elif prev_day.price > prev_day.lower_target_wall:  # above wall
-            return rr_framework(prev_day.supply, params.with_dynamic_reward_rate, 1)
-        else:  # inside the range
-            return rr_framework(prev_day.supply, params.with_dynamic_reward_rate, 0)
-
-
     def update_rbs_parameters(self, params:ModelParams, prev_day=None, prev_lags=Dict[int, Tuple[int, Dict[int, float]]]):
         # Price Target
         self.ma_target = calc_price_target(params=params, prev_day=prev_day, prev_lags=prev_lags)
@@ -396,6 +379,24 @@ class Day():
             self.ask_counter = prev_day.ask_counter[1:] + [1]
         else:
             self.ask_counter = prev_day.ask_counter[1:] + [0]
+
+
+# NOTE: Not that important since we were just ideating. After OIP 119 regardless of the scenario, reward rate is fixed.
+# reserves_in is amount added to LP (as part of POL) so is tracked likewise. Assumption is xy=k so you get amount of OHM out.
+def calculate_reward_rate(params:ModelParams, prev_day=None):
+    if prev_day.fmcap_treasury_ratio < 1:  # below backing
+        return rr_framework(prev_day.supply, params.with_dynamic_reward_rate, -3)
+    elif prev_day.price < prev_day.lower_target_wall:  # below wall
+        return rr_framework(prev_day.supply, params.with_dynamic_reward_rate, -2)
+    elif prev_day.price < prev_day.lower_target_cushion:  # below cushion
+        return rr_framework(prev_day.supply, params.with_dynamic_reward_rate, -1)
+    elif prev_day.fmcap_treasury_ratio > 3:  # above 3x premium
+        return rr_framework(prev_day.supply, params.with_dynamic_reward_rate, 2)
+    elif prev_day.price > prev_day.lower_target_wall:  # above wall
+        return rr_framework(prev_day.supply, params.with_dynamic_reward_rate, 1)
+    else:  # inside the range
+        return rr_framework(prev_day.supply, params.with_dynamic_reward_rate, 0)
+
 
 # Reward rate framework
 def rr_framework(supply:int, with_dynamic_reward_rate:str, rr_controller:int, version="flat"):
