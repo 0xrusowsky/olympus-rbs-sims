@@ -171,6 +171,100 @@ class Day():
         # -- TREASURY MARKET OPERATIONS ---------------------------------------------------------------------------------------
         # How it works: calculate natural_price w/o RBS interventions (following xy=k), then compare to cushions and do market operations if necessary
 
+        perform_rbs_operations(params=params, prev_day=prev_day)
+
+
+        # 3. Market closes; market cleanup and accounting updates
+        # -- TREASURY ---------------------------------------------------------------------------------------
+
+        # Liquidity
+        self.liq_stables = max(prev_day.liq_stables + self.net_flow - self.reserves_in + self.bid_change_usd - self.ask_change_usd, 0)
+        self.liq_ohm = self.liq_stables and self.k / self.liq_stables or 0  # ensure that if liq_stables is 0 then liq_ohm is 0 as well
+        self.price = self.liq_ohm and self.liq_stables / self.liq_ohm or 0  # ensure that if liq_ohm is 0 then price is 0 as well
+
+        # Reserves
+        self.reserves_out = self.liq_stables - prev_day.liq_stables - self.net_flow  # - self.reserves_in (error caught by blockscience)
+        self.reserves_stables = max(prev_day.reserves_stables - self.reserves_out, 0)
+        self.prev_reserves = prev_day.reserves_stables
+
+        self.ohm_traded = (self.price + prev_day.price) and (-2) * self.reserves_out / (self.price + prev_day.price) or 0
+        self.cum_ohm_purchased = prev_day.cum_ohm_purchased - self.ohm_traded
+        self.cum_ohm_burnt = prev_day.cum_ohm_burnt + self.bid_change_ohm
+        self.cum_ohm_minted = prev_day.cum_ohm_minted + self.ask_change_ohm
+
+    def update_protocol_metrics(self, params:ModelParams, prev_lags=Dict[int, Tuple[int, Dict[int, float]]]):
+        self.floating_supply = max(self.supply - self.liq_ohm, 0)
+        self.treasury_stables = self.liq_stables + self.reserves_stables
+        self.liq_backing = self.treasury_stables + params.initial_reserves_volatile
+        self.mcap = self.supply * self.price
+        self.floating_mcap = self.floating_supply * self.price
+
+        self.liq_ratio = self.treasury_stables and self.liq_stables / self.treasury_stables or 0
+        self.target_liq_ratio_reached = True if self.liq_ratio >= params.max_liq_ratio else False
+        self.reserves_ratio = self.liq_stables and self.reserves_stables / self.liq_stables or 0
+        self.fmcap_treasury_ratio = self.treasury_stables and self.floating_mcap / self.treasury_stables or 0
+        self.liq_fmcap_ratio = self.floating_mcap and self.liq_stables / self.floating_mcap or 0
+
+        self.total_demand = self.market_demand  # + self.arb_demand
+        self.total_supply = self.market_supply  # + self.arb_supply
+        self.total_net = self.total_demand + self.total_supply
+
+        self.control_ask = sum(self.ask_counter)
+        self.control_bid = sum(self.bid_counter)
+
+        prev_lags['price'][1][self.day] = self.price
+        prev_lags['target'][1][self.day] = self.ma_target
+        prev_lags['gohm price variation'][1][self.day] = self.price * (1 + self.reward_rate)        
+        self.gohm_volatility = calc_gohm_volatility(prev_lags=prev_lags)
+
+
+    def update_reserve_intake(self, params:ModelParams, prev_day=None):
+        # Treasury Rebalance - Reserve Intake
+        if self.day % 7 == 0:  # Rebalance once a week
+            self.reserves_in = prev_day.liq_stables - prev_day.treasury_stables * params.max_liq_ratio
+            if prev_day.target_liq_ratio_reached is False:
+                max_outflow = (-1) * prev_day.reserves_stables * params.max_outflow_rate * 2 / 3  # Smaller max_outflow_rate until target is first reached
+            else:
+                max_outflow = (-1) * prev_day.reserves_stables * params.max_outflow_rate  # Ensure that the reserve release is limited by max_outflow_rate
+            
+            # max_outflow is really target. reserves_stables is updated in L320
+            if self.reserves_in < max_outflow:
+                self.reserves_in = max_outflow
+            if self.reserves_in < (-1) * prev_day.reserves_stables:  # Ensure that the reserve release is limited by the total reserves left
+                self.reserves_in = (-1) * prev_day.reserves_stables
+        else:
+            self.reserves_in = 0
+
+    def update_rbs_parameters(self, params:ModelParams, prev_day=None, prev_lags=Dict[int, Tuple[int, Dict[int, float]]]):
+        # Price Target
+        self.ma_target = calc_price_target(params=params, prev_day=prev_day, prev_lags=prev_lags)
+        self.lb_target = prev_day.floating_supply and prev_day.liq_backing / prev_day.floating_supply or 0
+        self.target = max(self.ma_target, self.lb_target)
+        self.prev_price = prev_day.price
+
+        # Walls
+        self.lower_target_wall = self.target * (1 - params.lower_wall)
+        self.upper_target_wall = self.target * (1 + params.upper_wall)
+
+        # Cushions
+        self.lower_target_cushion = self.target * (1 - params.lower_cushion)
+        self.upper_target_cushion = self.target * (1 + params.upper_cushion)
+
+        # Reinstate Window --> Inside the range counters
+        if prev_day.price > prev_day.target:
+            self.bid_counter = prev_day.bid_counter[1:] + [1]
+        else:
+            self.bid_counter = prev_day.bid_counter[1:] + [0]
+
+        if prev_day.price < prev_day.ma_target:
+            self.ask_counter = prev_day.ask_counter[1:] + [1]
+        else:
+            self.ask_counter = prev_day.ask_counter[1:] + [0]
+
+
+
+
+    def perform_rbs_operations(self, params:ModelParams, prev_day=None):
         # Target capacities
         self.bid_capacity_target = params.bid_factor * prev_day.reserves_stables
         self.ask_capacity_target = prev_day.upper_target_wall and params.ask_factor * prev_day.reserves_stables * (1 + 2 * params.upper_wall) / prev_day.upper_target_wall or 0
@@ -295,93 +389,6 @@ class Day():
             self.ask_change_usd = prev_day.ask_capacity * self.upper_target_wall
 
 
-
-        # 3. Market closes; market cleanup and accounting updates
-        # -- TREASURY ---------------------------------------------------------------------------------------
-
-        # Liquidity
-        self.liq_stables = max(prev_day.liq_stables + self.net_flow - self.reserves_in + self.bid_change_usd - self.ask_change_usd, 0)
-        self.liq_ohm = self.liq_stables and self.k / self.liq_stables or 0  # ensure that if liq_stables is 0 then liq_ohm is 0 as well
-        self.price = self.liq_ohm and self.liq_stables / self.liq_ohm or 0  # ensure that if liq_ohm is 0 then price is 0 as well
-
-        # Reserves
-        self.reserves_out = self.liq_stables - prev_day.liq_stables - self.net_flow  # - self.reserves_in (error caught by blockscience)
-        self.reserves_stables = max(prev_day.reserves_stables - self.reserves_out, 0)
-        self.prev_reserves = prev_day.reserves_stables
-
-        self.ohm_traded = (self.price + prev_day.price) and (-2) * self.reserves_out / (self.price + prev_day.price) or 0
-        self.cum_ohm_purchased = prev_day.cum_ohm_purchased - self.ohm_traded
-        self.cum_ohm_burnt = prev_day.cum_ohm_burnt + self.bid_change_ohm
-        self.cum_ohm_minted = prev_day.cum_ohm_minted + self.ask_change_ohm
-
-    def update_protocol_metrics(self, params:ModelParams, prev_lags=Dict[int, Tuple[int, Dict[int, float]]]):
-        self.floating_supply = max(self.supply - self.liq_ohm, 0)
-        self.treasury_stables = self.liq_stables + self.reserves_stables
-        self.liq_backing = self.treasury_stables + params.initial_reserves_volatile
-        self.mcap = self.supply * self.price
-        self.floating_mcap = self.floating_supply * self.price
-
-        self.liq_ratio = self.treasury_stables and self.liq_stables / self.treasury_stables or 0
-        self.target_liq_ratio_reached = True if self.liq_ratio >= params.max_liq_ratio else False
-        self.reserves_ratio = self.liq_stables and self.reserves_stables / self.liq_stables or 0
-        self.fmcap_treasury_ratio = self.treasury_stables and self.floating_mcap / self.treasury_stables or 0
-        self.liq_fmcap_ratio = self.floating_mcap and self.liq_stables / self.floating_mcap or 0
-
-        self.total_demand = self.market_demand  # + self.arb_demand
-        self.total_supply = self.market_supply  # + self.arb_supply
-        self.total_net = self.total_demand + self.total_supply
-
-        self.control_ask = sum(self.ask_counter)
-        self.control_bid = sum(self.bid_counter)
-
-        prev_lags['price'][1][self.day] = self.price
-        prev_lags['target'][1][self.day] = self.ma_target
-        prev_lags['gohm price variation'][1][self.day] = self.price * (1 + self.reward_rate)        
-        self.gohm_volatility = calc_gohm_volatility(prev_lags=prev_lags)
-
-
-    def update_reserve_intake(self, params:ModelParams, prev_day=None):
-        # Treasury Rebalance - Reserve Intake
-        if self.day % 7 == 0:  # Rebalance once a week
-            self.reserves_in = prev_day.liq_stables - prev_day.treasury_stables * params.max_liq_ratio
-            if prev_day.target_liq_ratio_reached is False:
-                max_outflow = (-1) * prev_day.reserves_stables * params.max_outflow_rate * 2 / 3  # Smaller max_outflow_rate until target is first reached
-            else:
-                max_outflow = (-1) * prev_day.reserves_stables * params.max_outflow_rate  # Ensure that the reserve release is limited by max_outflow_rate
-            
-            # max_outflow is really target. reserves_stables is updated in L320
-            if self.reserves_in < max_outflow:
-                self.reserves_in = max_outflow
-            if self.reserves_in < (-1) * prev_day.reserves_stables:  # Ensure that the reserve release is limited by the total reserves left
-                self.reserves_in = (-1) * prev_day.reserves_stables
-        else:
-            self.reserves_in = 0
-
-    def update_rbs_parameters(self, params:ModelParams, prev_day=None, prev_lags=Dict[int, Tuple[int, Dict[int, float]]]):
-        # Price Target
-        self.ma_target = calc_price_target(params=params, prev_day=prev_day, prev_lags=prev_lags)
-        self.lb_target = prev_day.floating_supply and prev_day.liq_backing / prev_day.floating_supply or 0
-        self.target = max(self.ma_target, self.lb_target)
-        self.prev_price = prev_day.price
-
-        # Walls
-        self.lower_target_wall = self.target * (1 - params.lower_wall)
-        self.upper_target_wall = self.target * (1 + params.upper_wall)
-
-        # Cushions
-        self.lower_target_cushion = self.target * (1 - params.lower_cushion)
-        self.upper_target_cushion = self.target * (1 + params.upper_cushion)
-
-        # Reinstate Window --> Inside the range counters
-        if prev_day.price > prev_day.target:
-            self.bid_counter = prev_day.bid_counter[1:] + [1]
-        else:
-            self.bid_counter = prev_day.bid_counter[1:] + [0]
-
-        if prev_day.price < prev_day.ma_target:
-            self.ask_counter = prev_day.ask_counter[1:] + [1]
-        else:
-            self.ask_counter = prev_day.ask_counter[1:] + [0]
 
 
 # NOTE: Not that important since we were just ideating. After OIP 119 regardless of the scenario, reward rate is fixed.
