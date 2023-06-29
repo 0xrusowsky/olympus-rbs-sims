@@ -133,24 +133,10 @@ class Day():
     def initialize_from_previous_day(self, params:ModelParams, prev_arbs:Dict[int, Tuple[float, float]], prev_lags=Dict[int, Tuple[int, Dict[int, float]]], prev_day=None, historical_net_flows=None):
         self.day = prev_day.day + 1
 
-        # 1. Pre-market operations
-        # -- SUPPLY ---------------------------------------------------------------------------------------
-        # NOTE: Not that important since we were just ideating. After OIP 119 regardless of the scenario, reward rate is fixed.
-        if prev_day.fmcap_treasury_ratio < 1:  # below backing           
-            self.reward_rate = rr_framework(prev_day.supply, params.with_dynamic_reward_rate, -3)
-        elif prev_day.price < prev_day.lower_target_wall:  # below wall
-            self.reward_rate = rr_framework(prev_day.supply, params.with_dynamic_reward_rate, -2)
-        elif prev_day.price < prev_day.lower_target_cushion:  # below cushion
-            self.reward_rate = rr_framework(prev_day.supply, params.with_dynamic_reward_rate, -1)
-        elif prev_day.fmcap_treasury_ratio > 3:  # above 3x premium
-            self.reward_rate = rr_framework(prev_day.supply, params.with_dynamic_reward_rate, 2)
-        elif prev_day.price > prev_day.lower_target_wall:  # above wall
-            self.reward_rate = rr_framework(prev_day.supply, params.with_dynamic_reward_rate, 1)
-        else:  # inside the range
-            self.reward_rate = rr_framework(prev_day.supply, params.with_dynamic_reward_rate, 0)
-
+        # -- PRE-MARKET OPERATIONS ---------------------------------------------------------------------------------------        
         # Supply expansion
         # reserves_in is amount added to LP (as part of POL) so is tracked likewise. Assumption is xy=k so you get amount of OHM out.
+        self.reward_rate = calculate_reward_rate(prev_day, params)
         self.supply = prev_day.price and max((prev_day.supply - prev_day.reserves_in / prev_day.prev_price + prev_day.ask_change_ohm - prev_day.bid_change_ohm) * (1 + self.reward_rate), 0) or 0
 
         # -- LIQUIDITY POOL ---------------------------------------------------------------------------------
@@ -393,6 +379,21 @@ class Day():
         prev_lags['gohm price variation'][1][self.day] = self.price * (1 + self.reward_rate)        
         self.gohm_volatility = calc_gohm_volatility(prev_lags=prev_lags)
 
+
+    # NOTE: Not that important since we were just ideating. After OIP 119 regardless of the scenario, reward rate is fixed.
+    def calculate_reward_rate(params:ModelParams, prev_day=None):
+        if prev_day.fmcap_treasury_ratio < 1:  # below backing           
+            return rr_framework(prev_day.supply, params.with_dynamic_reward_rate, -3)
+        elif prev_day.price < prev_day.lower_target_wall:  # below wall
+            return rr_framework(prev_day.supply, params.with_dynamic_reward_rate, -2)
+        elif prev_day.price < prev_day.lower_target_cushion:  # below cushion
+            return rr_framework(prev_day.supply, params.with_dynamic_reward_rate, -1)
+        elif prev_day.fmcap_treasury_ratio > 3:  # above 3x premium
+            return rr_framework(prev_day.supply, params.with_dynamic_reward_rate, 2)
+        elif prev_day.price > prev_day.lower_target_wall:  # above wall
+            return rr_framework(prev_day.supply, params.with_dynamic_reward_rate, 1)
+        else:  # inside the range
+            return rr_framework(prev_day.supply, params.with_dynamic_reward_rate, 0)
 
 
 
