@@ -147,26 +147,8 @@ class Day():
         # RBS
         update_rbs_parameters(params=params, prev_day=prev_day, prev_lags=prev_lags)
 
-        # 2. Market opens and operations begin
-        # -- MARKET BEHAVIgOR (MODEL INPUT) ---------------------------------------------------------------------------------------
-
-        if params.netflow_type == 'historical' or params.netflow_type == 'enforced' and historical_net_flows is not None:  # Arbitrary market behavior
-            self.net_flow = historical_net_flows
-            self.market_demand = 0
-            self.market_supply = 0
-
-        else:  # Random market behavior
-            # Assumption: trading volume is proportional to treasury value - bigger treasury = bigger volume
-            self.net_flow = random.uniform(prev_day.treasury_stables * prev_day.total_supply, prev_day.treasury_stables * prev_day.total_demand)
-
-            if params.netflow_type == 'waves':
-                self.market_demand = params.demand_factor * short_sin(self.day, params.short_cycle) * long_sin(self.day, params.long_cycle, params.long_sin_offset)
-                self.market_supply = params.supply_factor * short_cos(self.day, params.short_cycle) * long_cos(self.day, params.long_cycle, params.long_cos_offset, params.supply_amplitude)
-            else:
-                # Assumption is that we make assumptions about levels of volatility using random.uniform
-                self.market_demand = params.demand_factor * random.uniform(0.5, 3)
-                self.market_supply = params.supply_factor * random.uniform(0.5, 3)
-
+        # -- MARKET BEHAVIOR (MODEL INPUT) - Market opens and operations begin  ---------------------------------------------------------------------------------------
+        simulate_market_behavior(params=params, prev_day=prev_day, prev_lags=prev_lags, historical_net_flows=historical_net_flows)
 
         # -- TREASURY MARKET OPERATIONS ---------------------------------------------------------------------------------------
         # How it works: calculate natural_price w/o RBS interventions (following xy=k), then compare to cushions and do market operations if necessary
@@ -261,9 +243,26 @@ class Day():
         else:
             self.ask_counter = prev_day.ask_counter[1:] + [0]
 
+    def simulate_market_behavior(self, params:ModelParams, prev_day=None, historical_net_flows=None):
+        if params.netflow_type == 'historical' or params.netflow_type == 'enforced' and historical_net_flows is not None:  # Arbitrary market behavior
+            self.net_flow = historical_net_flows
+            self.market_demand = 0
+            self.market_supply = 0
+
+        else:  # Random market behavior
+            # Assumption: trading volume is proportional to treasury value - bigger treasury = bigger volume
+            self.net_flow = random.uniform(prev_day.treasury_stables * prev_day.total_supply, prev_day.treasury_stables * prev_day.total_demand)
+
+            if params.netflow_type == 'waves':
+                self.market_demand = params.demand_factor * short_sin(self.day, params.short_cycle) * long_sin(self.day, params.long_cycle, params.long_sin_offset)
+                self.market_supply = params.supply_factor * short_cos(self.day, params.short_cycle) * long_cos(self.day, params.long_cycle, params.long_cos_offset, params.supply_amplitude)
+            else:
+                # Assumption is that we make assumptions about levels of volatility using random.uniform
+                self.market_demand = params.demand_factor * random.uniform(0.5, 3)
+                self.market_supply = params.supply_factor * random.uniform(0.5, 3)
 
 
-
+    # How it works: calculate natural_price w/o RBS interventions (following xy=k), then compare to cushions and do market operations if necessary
     def perform_rbs_operations(self, params:ModelParams, prev_day=None):
         # Target capacities
         self.bid_capacity_target = params.bid_factor * prev_day.reserves_stables
