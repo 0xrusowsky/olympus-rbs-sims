@@ -56,67 +56,14 @@ class ModelParams():
 
 
 class Day():
+    # Requires model parameters, 
+    # prev_arbs = not really used anymore, 
+    # prev_lags = stores historical price (to calculate moving average)
+    # prev_day = stores previous day's data so we can update the system during state transition
     def __init__(self, params:ModelParams, prev_arbs:Dict[int, Tuple[float, float]], prev_lags=Dict[int, Tuple[int, Dict[int, float]]], prev_day=None, historical_net_flows=None):
-        
         # Initialize variables for the first day
         if prev_day is None:
-            self.day = 1
-            self.supply = params.initial_supply
-            self.reward_rate = rr_framework(self.supply, params.with_dynamic_reward_rate, 0)
-            self.price = params.initial_price
-            self.liq_stables = params.initial_liq_stables
-            self.liq_ohm = self.liq_stables / self.price
-            self.k = (self.liq_stables ** 2) / self.price
-
-            self.reserves_in = 0
-            self.reserves_out = 0
-            self.release_capture = 0  # Deprecated
-            self.ohm_traded = 0
-            self.cum_ohm_purchased = 0
-            self.cum_ohm_burnt = 0
-            self.cum_ohm_minted = 0
-            self.reserves_stables = params.initial_reserves_stables
-            self.prev_reserves = params.initial_reserves_stables
-
-            self.ma_target = params.initial_target
-            self.lb_target = params.initial_liq_backing / params.initial_supply
-            self.target    = max(self.ma_target, self.lb_target)
-
-            self.lower_target_wall = self.ma_target * (1 - params.lower_wall)
-            self.upper_target_wall = self.ma_target * (1 + params.upper_wall)
-            self.lower_target_cushion = self.ma_target * (1 - params.lower_cushion)
-            self.upper_target_cushion = self.ma_target * (1 + params.upper_cushion)
-
-            self.bid_capacity_target = params.bid_factor * self.reserves_stables
-            self.ask_capacity_target = params.ask_factor * self.reserves_stables / self.upper_target_wall * (1 + params.lower_wall + params.upper_wall)
-            self.bid_capacity_target_cushion = self.bid_capacity_target * params.cushion_factor
-            self.ask_capacity_target_cushion = self.ask_capacity_target * params.cushion_factor
-            self.bid_capacity = self.bid_capacity_target
-            self.ask_capacity = self.ask_capacity_target
-            self.bid_capacity_cushion = self.bid_capacity_target_cushion
-            self.ask_capacity_cushion = self.ask_capacity_target_cushion
-            self.ask_change_ohm = 0
-            self.bid_change_ohm = 0
-            
-            self.prev_price = self.price
-            self.prev_lower_target_wall = self.lower_target_wall
-            self.prev_upper_target_wall = self.upper_target_wall
-            
-            self.market_demand = params.demand_factor
-            self.market_supply = params.supply_factor
-            self.arb_factor = params.arb_factor
-            self.arb_demand = 0
-            self.arb_supply = 0
-            self.unwind_demand = 0
-            self.unwind_supply = 0
-
-            self.net_flow = 0
-            prev_arbs[self.day] = (self.arb_demand, self.arb_supply)
-            
-            self.bid_counter = [0] * params.reinstate_window
-            self.ask_counter = [0] * params.reinstate_window
-            self.target_liq_ratio_reached = False
-
+            initialize_first_day(params, prev_arbs)
         else:
             self.day = prev_day.day + 1
 
@@ -375,6 +322,64 @@ class Day():
         self.gohm_volatility = calc_gohm_volatility(prev_lags=prev_lags)
 
 
+
+    def initialize_first_day(self, params:ModelParams, prev_arbs:Dict[int, Tuple[float, float]]):
+        self.day = 1
+        self.supply = params.initial_supply
+        self.reward_rate = rr_framework(self.supply, params.with_dynamic_reward_rate, 0)
+        self.price = params.initial_price
+        self.liq_stables = params.initial_liq_stables # This is initial liquidity stables, replace with ETH in liquidity pool
+        self.liq_ohm = self.liq_stables / self.price # Calculate liquidity in OHM assuming xy=k invariant
+        self.k = (self.liq_stables ** 2) / self.price # Calculate k invariant
+
+        self.reserves_in = 0
+        self.reserves_out = 0
+        self.release_capture = 0  # Deprecated
+        self.ohm_traded = 0
+        self.cum_ohm_purchased = 0
+        self.cum_ohm_burnt = 0
+        self.cum_ohm_minted = 0
+        self.reserves_stables = params.initial_reserves_stables
+        self.prev_reserves = params.initial_reserves_stables
+
+        self.ma_target = params.initial_target
+        self.lb_target = params.initial_liq_backing / params.initial_supply
+        self.target    = max(self.ma_target, self.lb_target)
+
+        self.lower_target_wall = self.ma_target * (1 - params.lower_wall)
+        self.upper_target_wall = self.ma_target * (1 + params.upper_wall)
+        self.lower_target_cushion = self.ma_target * (1 - params.lower_cushion)
+        self.upper_target_cushion = self.ma_target * (1 + params.upper_cushion)
+
+        self.bid_capacity_target = params.bid_factor * self.reserves_stables
+        self.ask_capacity_target = params.ask_factor * self.reserves_stables / self.upper_target_wall * (1 + params.lower_wall + params.upper_wall)
+        self.bid_capacity_target_cushion = self.bid_capacity_target * params.cushion_factor
+        self.ask_capacity_target_cushion = self.ask_capacity_target * params.cushion_factor
+        self.bid_capacity = self.bid_capacity_target
+        self.ask_capacity = self.ask_capacity_target
+        self.bid_capacity_cushion = self.bid_capacity_target_cushion
+        self.ask_capacity_cushion = self.ask_capacity_target_cushion
+        self.ask_change_ohm = 0
+        self.bid_change_ohm = 0
+        
+        self.prev_price = self.price
+        self.prev_lower_target_wall = self.lower_target_wall
+        self.prev_upper_target_wall = self.upper_target_wall
+        
+        self.market_demand = params.demand_factor
+        self.market_supply = params.supply_factor
+        self.arb_factor = params.arb_factor
+        self.arb_demand = 0
+        self.arb_supply = 0
+        self.unwind_demand = 0
+        self.unwind_supply = 0
+
+        self.net_flow = 0
+        prev_arbs[self.day] = (self.arb_demand, self.arb_supply)
+        
+        self.bid_counter = [0] * params.reinstate_window
+        self.ask_counter = [0] * params.reinstate_window
+        self.target_liq_ratio_reached = False
 
 # Reward rate framework
 def rr_framework(supply:int, with_dynamic_reward_rate:str, rr_controller:int, version="flat"):
