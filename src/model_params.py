@@ -54,3 +54,12 @@ class ModelParams():
     # Initialize any derived variables.
     def __post_init__(self):
         self.initial_liq_backing = self.initial_reserves_stables + self.initial_reserves_volatile + self.initial_liq_stables
+
+    # Determines the netflow types. Either 'historical', 'enforced', 'random', or 'cycles' (sin/cos waves)
+    # If the netflow_type is historical or enforced, then overwrite initial values.
+    def update_with_historical_flows(self, initial_date = None):
+        if self.netflow_type == 'historical' and initial_date is not None:
+            historical_df = pd.read_csv('data/historical_ohm_data.csv', usecols= ['date','net_flows', 'price', 'supply','liquidity','reserves','reserves_volatile'])
+            initial_index = historical_df[historical_df == initial_date]['date'].dropna().index[0]
+            self.initial_price, self.initial_supply, self.initial_liq_stables, self.initial_reserves_stables, self.initial_reserves_volatile = historical_df.iloc[initial_index, [historical_df.columns.get_loc(c) for c in ['price', 'supply','liquidity','reserves','reserves_volatile']]]
+            self.initial_target = self.initial_price

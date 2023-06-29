@@ -1,9 +1,29 @@
 import random
 import math
 import numpy as np
+import pandas as pd
 from typing import Dict, List, Tuple
 from src.model_params import ModelParams
 from src.day import Day
+
+
+# Get initial params based on historical data
+# initial_date - Determines the initial date to account for 'historical' netflows and initial params. (example: '2021/12/18')
+# NOTE: This function supercedes initial_functions.py.
+def get_historical_net_flows(netflow_type:str, netflow_data:str=None, initial_date:str=None):
+    if netflow_type == 'historical' and initial_date is not None:
+        historical_df = pd.read_csv('data/historical_ohm_data.csv', usecols= ['date','net_flows', 'price', 'supply','liquidity','reserves','reserves_volatile'])
+        initial_index = historical_df[historical_df == initial_date]['date'].dropna().index[0]
+        return historical_df[historical_df.index >= initial_index]['net_flows'].tolist()
+    elif netflow_type == 'enforced':
+        f = open(f'./data/sim-vs-testnet/sim-results-{netflow_data}.json')
+        data = json.load(f)
+        df = pd.json_normalize(data)
+        f.close()
+        return df['netFlow'].apply(lambda x: round(float(x),2)).tolist()
+    else:
+        return None
+
 
 # NOTE: Not that important since we were just ideating. After OIP 119 regardless of the scenario, reward rate is fixed.
 # reserves_in is amount added to LP (as part of POL) so is tracked likewise. Assumption is xy=k so you get amount of OHM out.

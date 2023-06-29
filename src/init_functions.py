@@ -3,6 +3,7 @@ import json
 import math
 from typing import Dict, List, Tuple
 
+# TODO: This function is deprecated in favor of Utils#get_historical_net_flows(). Keeping this here since simulation_.py files depend on it.
 # Get initial params based on historical data
 def initial_params(netflow_type:str, netflow_data:str=None, initial_date:str=None, initial_supply:float=None, initial_reserves_stables:float=None, initial_reserves_volatile:float=None, initial_liq_stables:float=None, initial_price:float=None, initial_target:float=None):
     if netflow_type == 'historical':
