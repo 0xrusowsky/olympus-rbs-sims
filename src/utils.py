@@ -134,26 +134,23 @@ class Day():
         self.day = prev_day.day + 1
 
         # -- PRE-MARKET OPERATIONS ---------------------------------------------------------------------------------------        
-        # Supply expansion
+        # Update supply
         self.reward_rate = calculate_reward_rate(prev_day, params)
         self.supply = prev_day.price and max((prev_day.supply - prev_day.reserves_in / prev_day.prev_price + prev_day.ask_change_ohm - prev_day.bid_change_ohm) * (1 + self.reward_rate), 0) or 0
 
-        # -- LIQUIDITY POOL ---------------------------------------------------------------------------------
-        update_reserve_intake(params=params, prev_day=prev_day, prev_lags=prev_lags)
-
-        # AMM k
+        # Rebalance treasury and update RBS parameters
+        rebalance_treasury(params=params, prev_day=prev_day, prev_lags=prev_lags)
         self.k = prev_day.price and ((prev_day.liq_stables - self.reserves_in)**2 / prev_day.price) or 0  # Mint & sync has been deprecated
-
-        # RBS
         update_rbs_parameters(params=params, prev_day=prev_day, prev_lags=prev_lags)
 
-        # -- MARKET BEHAVIOR (MODEL INPUT) - Market opens and operations begin  ---------------------------------------------------------------------------------------
+        # -- MARKET BEHAVIOR  ---------------------------------------------------------------------------------------
+        # Simulate market behavior
         simulate_market_behavior(params=params, prev_day=prev_day, prev_lags=prev_lags, historical_net_flows=historical_net_flows)
 
-
-        # Run RBS market operations
+        # Run RBS in response
         perform_rbs_operations(params=params, prev_day=prev_day)
 
+        # -- MARKET CLOSE  ---------------------------------------------------------------------------------------
         # Update treasury metrics
         update_treasury_metrics(params=params, prev_day=prev_day)
 
@@ -185,7 +182,7 @@ class Day():
         self.gohm_volatility = calc_gohm_volatility(prev_lags=prev_lags)
 
 
-    def update_reserve_intake(self, params:ModelParams, prev_day=None):
+    def rebalance_treasury(self, params:ModelParams, prev_day=None):
         # Treasury Rebalance - Reserve Intake
         if self.day % 7 == 0:  # Rebalance once a week
             self.reserves_in = prev_day.liq_stables - prev_day.treasury_stables * params.max_liq_ratio
