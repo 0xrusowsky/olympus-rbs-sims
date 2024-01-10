@@ -78,6 +78,7 @@ class Day():
 
             self.ma_target = params.initial_target
             self.lb_target = params.initial_liq_backing / params.initial_supply
+            self.target = max(self.ma_target, self.lb_target)
             self.lower_target_wall = self.ma_target * (1 - params.lower_wall)
             self.upper_target_wall = self.ma_target * (1 + params.upper_wall)
             self.lower_target_cushion = self.ma_target * (1 - params.lower_cushion)
@@ -96,7 +97,9 @@ class Day():
             
             self.prev_price = self.price
             self.prev_lower_target_wall = self.lower_target_wall
+            self.prev_lower_target_cushion = self.lower_target_cushion
             self.prev_upper_target_wall = self.upper_target_wall
+            self.prev_upper_target_cushion = self.upper_target_cushion
             
             self.market_demand = params.demand_factor
             self.market_supply = params.supply_factor
@@ -162,7 +165,11 @@ class Day():
             self.ma_target = calc_price_target(params=params, prev_day=prev_day, prev_lags=prev_lags)
             self.lb_target = prev_day.floating_supply and prev_day.liq_backing / prev_day.floating_supply or 0
             self.target = max(self.ma_target, self.lb_target)
-            self.prev_price = prev_day.price
+            self.prev_price = round(prev_day.price, 4)
+            self.prev_lower_target_wall = round(prev_day.lower_target_wall, 4)
+            self.prev_lower_target_cushion = round(prev_day.lower_target_cushion, 4)
+            self.prev_upper_target_wall = round(prev_day.upper_target_wall, 4)
+            self.prev_upper_target_cushion = round(prev_day.upper_target_cushion, 4)
 
             # Walls
             self.lower_target_wall = self.target * (1 - params.lower_wall)
@@ -206,7 +213,7 @@ class Day():
 
             # Target capacities
             self.bid_capacity_target = params.bid_factor * prev_day.reserves_stables
-            self.ask_capacity_target = prev_day.upper_target_wall and params.ask_factor * prev_day.reserves_stables * (1 + 2 * params.upper_wall) / prev_day.upper_target_wall or 0
+            self.ask_capacity_target = prev_day.upper_target_wall and params.ask_factor * prev_day.reserves_stables * (1 + params.upper_wall + params.lower_wall) / prev_day.upper_target_wall or 0
             self.bid_capacity_target_cushion = self.bid_capacity_target * params.cushion_factor
             self.ask_capacity_target_cushion = self.ask_capacity_target * params.cushion_factor
 
@@ -216,7 +223,7 @@ class Day():
             # BID: Real Bid Capacity - Cushion
             if (sum(self.bid_counter) >= params.min_counter_reinstate or params.with_reinstate_window == 'No') and natural_price > self.lower_target_cushion:  # Refill capacity
                 self.bid_capacity_cushion = self.bid_capacity_target_cushion
-            elif natural_price < self.lower_target_cushion and natural_price >= self.lower_target_wall:  # Deploy cushion capcity
+            elif self.prev_price >= self.prev_lower_target_cushion and self.lower_target_cushion > natural_price: # Deploy cushion capcity
                 self.bid_capacity_cushion = prev_day.bid_capacity_cushion + self.net_flow - self.reserves_in + prev_day.liq_stables - (self.k * self.lower_target_cushion) ** (1/2)
             else:
                 self.bid_capacity_cushion = prev_day.bid_capacity_cushion
@@ -227,7 +234,7 @@ class Day():
                 self.bid_capacity_cushion = self.bid_capacity_target_cushion
 
             # BID: Effective Bid Capacity Changes - Cushion
-            if natural_price <= self.lower_target_cushion and natural_price > self.lower_target_wall:
+            if self.prev_price >= self.prev_lower_target_cushion and self.lower_target_cushion > natural_price:
                 self.bid_change_cushion_usd = prev_day.bid_capacity_cushion - self.bid_capacity_cushion
                 self.bid_change_cushion_ohm = self.lower_target_cushion and (prev_day.bid_capacity_cushion - self.bid_capacity_cushion) / self.lower_target_cushion or 0
             else:
@@ -237,13 +244,15 @@ class Day():
             if self.bid_change_cushion_ohm > prev_day.bid_capacity_cushion:  # Ensure that change is smaller than capacity left
                 self.bid_change_cushion_usd = prev_day.bid_capacity_cushion
                 self.bid_change_cushion_ohm = self.lower_target_cushion and prev_day.bid_capacity_cushion / self.lower_target_cushion or 0
+            
+            bid_adj_price = self.k and ((self.net_flow - self.reserves_in + prev_day.liq_stables + self.bid_change_cushion_usd) ** 2) / self.k or 0
 
             # BID: Real Bid Capacity - Totals
-            if self.target == self.lb_target and natural_price <= self.lb_target * (1 - params.lower_wall): # Below liquid backing, the wall has infinite capacity (unlimited treasury redemptions at those levels)
+            if self.target == self.lb_target and bid_adj_price <= self.lb_target * (1 - params.lower_wall): # Below liquid backing, the wall has infinite capacity (unlimited treasury redemptions at those levels)
                 self.bid_capacity = self.bid_capacity_target
             elif (sum(self.bid_counter) >= params.min_counter_reinstate or params.with_reinstate_window == 'No') and natural_price > self.lower_target_cushion:  # Refill capacity
                 self.bid_capacity = self.bid_capacity_target
-            elif natural_price < self.lower_target_wall:  # Deploy cushion capcity
+            elif bid_adj_price < self.lower_target_wall:  # Deploy cushion capcity
                 self.bid_capacity = prev_day.bid_capacity + self.net_flow - self.reserves_in + prev_day.liq_stables - (self.k * self.lower_target_wall) ** (1/2)
             else:
                 self.bid_capacity = prev_day.bid_capacity - self.bid_change_cushion_usd
@@ -257,10 +266,10 @@ class Day():
                 self.bid_capacity_cushion = self.bid_capacity
 
             # BID: Effective Bid Capacity Changes - Totals
-            if self.target == self.lb_target and natural_price <= self.lb_target * (1 - params.lower_wall): # Below liquid backing, the wall has infinite capacity (unlimited treasury redemptions at those levels)
+            if self.target == self.lb_target and bid_adj_price < self.lb_target * (1 - params.lower_wall): # Below liquid backing, the wall has infinite capacity (unlimited treasury redemptions at those levels)
                 self.bid_change_usd = self.reserves_in - self.net_flow - prev_day.liq_stables + (self.k * self.lower_target_wall) ** (1/2)
                 self.bid_change_ohm = self.lower_target_wall and self.bid_change_usd / self.lower_target_wall or 0
-            elif natural_price >= self.lower_target_wall:  # If wall wasn't used, update with cushion
+            elif bid_adj_price >= self.lower_target_wall:  # If wall wasn't used, update with cushion
                 self.bid_change_usd = self.bid_change_cushion_usd
                 self.bid_change_ohm = self.bid_change_cushion_ohm
             else:
@@ -271,11 +280,10 @@ class Day():
                 self.bid_change_usd = prev_day.bid_capacity
                 self.bid_change_ohm = self.lower_target_wall and prev_day.bid_capacity / self.lower_target_wall or 0
 
-
             # ASK: Real Ask Capacity - Cushion
             if (sum(self.ask_counter) >= params.min_counter_reinstate or params.with_reinstate_window == 'No') and natural_price < self.upper_target_cushion:
                 self.ask_capacity_cushion = self.ask_capacity_target_cushion
-            elif natural_price > self.upper_target_cushion and natural_price <= self.upper_target_wall:
+            elif self.prev_price <= self.prev_upper_target_cushion and self.upper_target_cushion < natural_price:
                 self.ask_capacity_cushion = self.upper_target_cushion and prev_day.ask_capacity_cushion - (self.net_flow - self.reserves_in + prev_day.liq_stables) / self.upper_target_cushion + (self.k / self.upper_target_cushion) ** (1/2) or 0
             else:
                 self.ask_capacity_cushion = prev_day.ask_capacity_cushion
@@ -286,7 +294,7 @@ class Day():
                 self.ask_capacity_cushion = self.ask_capacity_target_cushion
 
             # ASK: Effective Ask Capacity Changes - Cushion
-            if natural_price > self.upper_target_cushion and natural_price <= self.upper_target_wall:
+            if self.prev_price <= self.prev_upper_target_cushion and self.upper_target_cushion < natural_price:
                 self.ask_change_cushion_ohm = prev_day.ask_capacity_cushion - self.ask_capacity_cushion
                 self.ask_change_cushion_usd = self.upper_target_cushion * (prev_day.ask_capacity_cushion - self.ask_capacity_cushion)
             else:
@@ -296,11 +304,13 @@ class Day():
             if self.ask_change_cushion_ohm > prev_day.ask_capacity_cushion:  # ensure that change is smaller than capacity left
                 self.ask_change_cushion_ohm = prev_day.ask_capacity_cushion
                 self.ask_change_cushion_usd = prev_day.ask_capacity_cushion * self.upper_target_cushion
+            
+            ask_adj_price =  self.k and ((self.net_flow - self.reserves_in + prev_day.liq_stables - self.ask_change_cushion_usd) ** 2) / self.k or 0
                             
             # ASK: Real Ask Capacity - Totals
             if (sum(self.ask_counter) >= params.min_counter_reinstate or params.with_reinstate_window == 'No') and natural_price < self.upper_target_cushion:
                 self.ask_capacity = self.ask_capacity_target
-            elif natural_price > self.upper_target_wall:
+            elif ask_adj_price > self.upper_target_wall:
                 self.ask_capacity = self.upper_target_wall and prev_day.ask_capacity - (self.net_flow - self.reserves_in + prev_day.liq_stables) / self.upper_target_wall + (self.k / self.upper_target_wall) ** (1/2) or 0
             else:
                 self.ask_capacity = prev_day.ask_capacity - self.ask_change_cushion_ohm # update capacity total to account for the cushion
@@ -314,7 +324,7 @@ class Day():
                 self.ask_capacity_cushion = self.ask_capacity
 
             # ASK: Effective Ask Capacity Changes - Totals
-            if natural_price <= self.upper_target_wall: #if wall wasn't used, update with cushion
+            if ask_adj_price <= self.upper_target_wall: #if wall wasn't used, update with cushion
                 self.ask_change_ohm = self.ask_change_cushion_ohm
                 self.ask_change_usd = self.ask_change_cushion_usd
             else:
