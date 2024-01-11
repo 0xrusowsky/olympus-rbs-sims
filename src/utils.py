@@ -383,7 +383,9 @@ class Day():
 
 
 # Reward rate framework
-def rr_framework(supply:int, with_dynamic_reward_rate:str, rr_controller:int, version="flat"):
+def rr_framework(supply:int, with_dynamic_reward_rate:str, rr_controller:int, version="flat", on:bool=False):
+    if on is False: return 0
+
     if supply < 1_000_000:
         r = 0.3058 * 3 / 100
     elif supply < 10_000_000:
